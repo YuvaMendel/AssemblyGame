@@ -5,8 +5,8 @@ DATASEG
 ; --------------------------
 	num dw 201
 	newLinw db 10, 13, '$'
-	X dw 07D0h
-	Y dw 0640h
+	X dw 0;0A00h
+	Y dw 0;0640h
 ; --------------------------
 
 CODESEG
@@ -20,10 +20,17 @@ start:
 	; call Sqrt2
 	; pop ax
 	; call printAxDec
+	
 	sub sp, 4
-	push 0000h
-	push 018h
-	call XYtoAddWithIncline
+	push [x]
+	push [y]
+	push 1400h
+	push 0c80h
+	push 0020h
+	call XYtoAdd2Dots
+	; push 0050h
+	; push 18h
+	; call XYtoAddWithIncline
 	mov ax, 13h
 	int 10h	
 	push 0a000h
@@ -262,10 +269,22 @@ proc XYtoAddWithIncline
 	push ax
 	push bx
 	push dx
+	push cx
 	
 	mov ax, [bp + 6];incline
 	mul ax
-	shr ax, 4;Fixed Decimal point Correction
+	
+	;Fixed Decimal point Correction
+	mov cx, 4
+@@loopToShiftRight:
+	shr ax, 1
+	shr dx, 1
+	jnc @@NoCarryInDX
+	or ax, 1000000000000000b
+@@NoCarryInDX:
+	loop @@loopToShiftRight
+	
+
 	add ax, 10000b
 	jnc @@NoCarry
 	inc dx
@@ -299,10 +318,10 @@ proc XYtoAddWithIncline
 	
 	add [bp + 8], ax; X part 2
 	
-	cmp [word bp + 8], 0;These 3 lines are rounding all the fraction that are rounded to 0 to 1/16
-	jnz @@XisSet
-	mov [word bp + 8], 1
-@@XisSet:
+	; cmp [word bp + 8], 0;These 3 lines are rounding all the fraction that are rounded to 0 to 1/16
+	; jnz @@XisSet
+	; mov [word bp + 8], 1
+; @@XisSet:
 	
 	xor dx, dx
 	mov ax, [bp + 8]
@@ -312,6 +331,7 @@ proc XYtoAddWithIncline
 	shr ax, 4
 	mov [bp + 10], ax;Y
 	
+	pop cx
 	pop dx
 	pop bx
 	pop ax
@@ -337,6 +357,140 @@ proc XYToMemory
 	pop bp
 	ret 4
 endp XYToMemory
+
+;Description: Finds the x and y need to add to get to a target point
+;Input: Through Stack: 1.XStart [bp + 12]  2. YStart [bp + 10] 3. XTagrget[bp + 8] 4. YTarget[bp + 6] 5. speed[bp + 4]
+;Output: Through Stack: 1.X 2.Y
+;Requirements: Make room in stack before (sub sp, 4)
+proc XYtoAdd2Dots
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push dx
+	push cx
+	push di
+	push si
+	
+	mov bx, [bp + 8]
+	sub bx, [bp + 12]
+	;bx -> XTarget - XStart
+	
+	
+	mov di, [bp + 6]
+	sub di, [bp + 10]
+	;di -> YTarget - YStart
+	
+	mov ax, bx
+	mul ax
+;Fixed Decimal point Correction
+	mov cx, 4
+@@loopToShiftRight1:
+	shr ax, 1
+	shr dx, 1
+	jnc @@NoCarryInDX1
+	or ax, 1000000000000000b
+@@NoCarryInDX1:
+	loop @@loopToShiftRight1
+	push dx;save answer
+	push ax;save answer
+	
+	mov ax, di
+	mul ax
+;Fixed Decimal point Correction
+	mov cx, 4
+@@loopToShiftRight2:
+	shr ax, 1
+	shr dx, 1
+	jnc @@NoCarryInDX2
+	or ax, 1000000000000000b
+@@NoCarryInDX2:
+	loop @@loopToShiftRight2
+	
+	pop si
+	add ax, si
+	jnc @@NoCarry1
+	inc dx
+@@NoCarry1:
+	pop cx
+	add dx, cx
+	
+	sub sp, 2
+	push dx
+	push ax
+	call Sqrt2
+	pop cx
+	shl cx, 2
+	
+	mov ax, [bp + 4]
+	mul bx
+	push cx
+	mov cx, 4
+	@@loopToShiftRight3:
+	shr ax, 1
+	shr dx, 1
+	jnc @@NoCarryInDX3
+	or ax, 1000000000000000b
+@@NoCarryInDX3:
+	loop @@loopToShiftRight3
+	pop cx
+	div cx
+	
+	shl ax, 4;Fixed Decimal Point
+	push ax;save
+	
+	Shl dx, 4;Sheerit
+	mov ax, dx
+	xor dx, dx
+	div cx
+	shr dx, 4
+	test dx, 1000000000000000b
+	jz @@NoRound1
+	inc ax
+@@NoRound1:
+	pop dx
+	add ax, dx
+	mov [bp + 14], ax
+	
+	mov ax, [bp + 4]
+	mul di
+	push cx
+	mov cx, 4
+	@@loopToShiftRight4:
+	shr ax, 1
+	shr dx, 1
+	jnc @@NoCarryInDX4
+	or ax, 1000000000000000b
+@@NoCarryInDX4:
+	loop @@loopToShiftRight4
+	pop cx
+	div cx
+	
+	shl ax, 4;Fixed Decimal Point
+	push ax;save
+	
+	Shl dx, 4;Sheerit
+	mov ax, dx
+	xor dx, dx
+	div cx
+	shr dx, 4
+	test dx, 1000000000000000b
+	jz @@NoRound2
+	inc ax
+@@NoRound2:
+	pop dx
+	add ax, dx
+	mov [bp + 16], ax
+	
+	pop si
+	pop di
+	pop cx
+	pop dx
+	pop bx
+	pop ax
+	pop bp
+	ret 10
+endp XYtoAdd2Dots
 END start
 
 
