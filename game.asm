@@ -13,12 +13,19 @@ p386
 ;
 ;
 ;Player Atributes
-PLAYERLENGTH = 15;Player Size X
-PLAYERHIGHT = 13;Player Size Y
+PLAYERLENGTH = 0F0h;Player Size X
+PLAYERHIGHT = 0d0h;Player Size Y
 PLAYERSTARTINGXPOS = 0A08h;Player starting Point X With FixedDecimal Point
 PLAYERSTARTINGYPOS = 0648h;Player starting Point Y With FixedDecimal Point
 KnightDefultFName equ "KnightDe.bmp"
+KNIGHTLENGTHTRAVEL = 30h;With fixed Decimal point
 ;
+
+KeyboardInterruptPosition = 9 * 4
+
+;Board Sizes
+MaxBoardLength = 1400h ;With fixed decimal point
+MaxBoardHeight = 0c80h ;With fixed decimal point
 
 DATASEG
 ; --------------------------
@@ -58,6 +65,14 @@ DATASEG
 	
 	
 	
+	
+;Async Keyboard Variables
+	oldintruptoffset dw ?
+	oldintruptsegment dw ?
+	key db ?
+	
+	
+	
 
 
 
@@ -69,7 +84,10 @@ start:
 	mov ds, ax
 ; --------------------------
 	call SetGraphic
+	call SetAsyncKeyboard
+l:
 	call DrawKnight
+	jmp l
 ; --------------------------
 
 exit:
@@ -133,6 +151,190 @@ pop_next_from_stack:
 endp printAxDec
 
 
+;Description:Makes Keyboard Async
+;Input: none
+;Output: none
+proc SetAsyncKeyboard
+	push es
+	push cx
+	push dx
+	push ax
+	push si
+	
+	xor ax, ax
+	mov es, ax
+	
+	mov si, KeyboardInterruptPosition
+	
+	mov dx, [es:si]
+	mov cx, [es:si+2]
+	
+	mov [oldintruptoffset], dx
+	mov [oldintruptsegment], cx
+	
+	cli
+	mov ax, offset Keyboard_handler
+	mov [word es:si], ax
+	mov ax, cs
+	mov [word es:si + 2], ax
+	sti
+	
+	pop si
+	pop ax
+	pop dx
+	pop cx
+	pop es
+	ret
+endp SetAsyncKeyboard
+
+;Description: Makes Keyboard interrupt (int 9h) back to defult
+;******************DID NOT CHECK***********************************
+proc RestoreKeyboardInt
+	push es
+	push cx
+	push dx
+	push ax
+	push si
+	
+	xor ax, ax
+	mov es, ax
+	
+	mov si, KeyboardInterruptPosition
+	
+	mov dx, [oldintruptoffset]
+	mov cx, [oldintruptsegment]
+	
+	cli
+	mov [word es:si], dx
+	mov [word es:si + 2], cx
+	sti
+	
+	pop si
+	pop ax
+	pop dx
+	pop cx
+	pop es
+	ret
+endp RestoreKeyboardInt
+
+
+;Description: This procedure is the procedure that happens when key is pressed (int 9h)
+;Input: a key from the port
+;Output: calls the relevant procedure based on key
+proc Keyboard_handler near
+    push ax
+    push bx
+    push cx
+    push dx                                          
+    push sp
+    push bp
+    push si
+    push di
+
+    in al, 64h
+    test al, 01h
+
+    ; Gets the pressed key and stores it in [key]
+    in al, 60h         
+    mov [key], al
+
+    mov al, 20h
+    out 20h, al
+	
+	cmp [key], 11h
+	jnz @@NotW
+	call KMoveUp
+	jmp @@endproc
+@@NotW:
+	
+	cmp [key], 01fh
+	jnz @@NotS
+	call KMoveDown
+	jmp @@endproc
+@@NotS:
+	
+	cmp [key], 1eh
+	jnz @@NotA
+	call KMoveLeft
+	jmp @@endproc
+@@NotA:
+
+	cmp [key], 20h
+	jnz @@NotD
+	call KMoveRight
+	jmp @@endproc
+@@NotD:
+	
+	
+	
+@@endproc:
+    pop di
+    pop si
+    pop bp
+    pop sp
+    pop dx
+    pop cx
+    pop bx
+    pop ax    
+    IRET
+endp Keyboard_handler
+
+
+;Description: Moves Knight Up
+proc KMoveUp
+	push bx
+	mov bx, [YPlayer]
+	sub bx, KNIGHTLENGTHTRAVEL
+	jnc @@Moved
+	mov bx, 0
+@@Moved:
+	mov [YPlayer], bx
+	pop bx
+	ret
+endp KMoveUp
+
+proc KMoveDown
+	push bx
+	mov bx, [YPlayer]
+	add bx, PLAYERHIGHT
+	add bx, KNIGHTLENGTHTRAVEL
+	cmp bx, MaxBoardHeight
+	jna @@Moved
+	mov bx, MaxBoardHeight
+@@Moved:
+	sub bx, PLAYERHIGHT
+	mov [YPlayer], bx
+	pop bx
+	ret
+endp KMoveDown
+
+proc KMoveRight
+	push bx
+	mov bx, [XPlayer]
+	add bx, PLAYERLENGTH
+	add bx, KNIGHTLENGTHTRAVEL
+	cmp bx, MaxBoardLength
+	jna @@Moved
+	mov bx, MaxBoardLength
+@@Moved:
+	sub bx, PLAYERLENGTH
+	mov [XPlayer], bx
+	pop bx
+	ret
+endp KMoveRight
+
+proc KMoveLeft
+	push bx
+	mov bx, [XPlayer]
+	sub bx, KNIGHTLENGTHTRAVEL
+	jnc @@Moved
+	mov bx, 0
+@@Moved:
+	mov [XPlayer], bx
+	pop bx
+	ret
+endp KMoveLeft
+
 ;Description: Draws Knight
 ;Input: Input in the Knight variables
 ;Output: On screem
@@ -151,8 +353,15 @@ proc DrawKnight
 	call RemoveFixedDecimalPoint
 	pop [BmpTop]
 	
-	mov [BmpColSize], PLAYERLENGTH
-	mov [BmpRowSize], PLAYERHIGHT
+	sub sp, 2
+	push PLAYERLENGTH
+	call RemoveFixedDecimalPoint
+	pop [BmpColSize]
+	
+	sub sp, 2
+	push PLAYERHIGHT
+	call RemoveFixedDecimalPoint
+	pop [BmpRowSize]
 	
 	call OpenShowBmp
 	
