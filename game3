@@ -66,7 +66,7 @@ DATASEG
 	LastXPlayer dw ? ;save last X position to undraw later
 	LastYPlayer dw ? ;save last Y position to undraw later
 	
-	LastKPositionSaved db 1; bool to represent if the last position was saved and if Knight needs draw
+	KNeedDraw db 1; bool to represent if the last position was saved and if Knight needs draw
 
 	;bool for condition of knight
 	KAbleToBeHit db 0 ;bool to represent if the knight can be hit
@@ -416,19 +416,20 @@ proc CheckKeys
 	push cx
 	push di
 	
-	cmp [APressed], 0
-	jnz @@ANotpressed
 	
-	cmp [LastKPositionSaved], 0
-	jz @@NoSave1
+	
 	mov ax, [XPlayer]
 	mov [LastXPlayer], ax
 	
 	mov ax, [YPlayer]
 	mov [LastYPlayer], ax
 	
-	mov [LastKPositionSaved], 0
-	@@NoSave1:
+	
+	cmp [APressed], 0
+	jnz @@ANotpressed
+	
+	
+	mov [KNeedDraw], 0
 	
 	call KMoveLeft
 @@ANotpressed:
@@ -437,17 +438,8 @@ proc CheckKeys
 	cmp [DPressed], 0
 	jnz @@DNotpressed
 	
-	cmp [LastKPositionSaved], 0
-	jz @@NoSave2
-	mov ax, [XPlayer]
-	mov [LastXPlayer], ax
-	
-	mov ax, [YPlayer]
-	mov [LastYPlayer], ax
-	
-	mov [LastKPositionSaved], 0
-	@@NoSave2:
-	
+	mov [KNeedDraw], 0
+
 	call KMoveRight
 @@DNotpressed:
 
@@ -455,16 +447,7 @@ proc CheckKeys
 	cmp [SPressed], 0
 	jnz @@SNotpressed
 	
-	cmp [LastKPositionSaved], 0
-	jz @@NoSave3
-	mov ax, [XPlayer]
-	mov [LastXPlayer], ax
-	
-	mov ax, [YPlayer]
-	mov [LastYPlayer], ax
-	
-	mov [LastKPositionSaved], 0
-	@@NoSave3:
+	mov [KNeedDraw], 0
 	
 	call KMoveDown
 @@SNotpressed:
@@ -472,27 +455,21 @@ proc CheckKeys
 	cmp [WPressed], 0
 	jnz @@WNotpressed
 	
-	cmp [LastKPositionSaved], 0
-	jz @@NoSave4
-	mov ax, [XPlayer]
-	mov [LastXPlayer], ax
 	
-	mov ax, [YPlayer]
-	mov [LastYPlayer], ax
 	
-	mov [LastKPositionSaved], 0
-	@@NoSave4:
+	mov [KNeedDraw], 0
+
 	
 	call KMoveUp
 @@WNotpressed:
 	
-	cmp [LastKPositionSaved], 0
+	cmp [KNeedDraw], 0
 	jnz @@NoDraw
 	call UndrawKnight
 	call DrawKnight
 	
 @@NoDraw:
-	mov [LastKPositionSaved], 1
+	mov [KNeedDraw], 1
 	
 	pop di
 	pop cx
