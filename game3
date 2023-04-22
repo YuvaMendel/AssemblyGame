@@ -13,7 +13,7 @@ p386
 ;
 ;
 ;Player Atributes
-PLAYERLENGTH = 120h;Player Size X
+PLAYERLENGTH = 80h;Player Size X
 PLAYERHIGHT = 0d0h;Player Size Y
 PLAYERSTARTINGXPOS = 0A00h;Player starting Point X With FixedDecimal Point
 PLAYERSTARTINGYPOS = 0640h;Player starting Point Y With FixedDecimal Point
