@@ -1,7 +1,8 @@
+.486
 IDEAL
 MODEL small
 STACK 100h
-p386
+
 
 
 ;This game uses binary 4 digits to represent fractions (Fixed decimal point)
@@ -13,15 +14,25 @@ p386
 ;
 ;
 ;Player Atributes
-PLAYERLENGTH = 0F0h;Player Size X
+PLAYERLENGTH = 80h;Player Size X
 PLAYERHIGHT = 0d0h;Player Size Y
-PLAYERSTARTINGXPOS = 0A08h;Player starting Point X With FixedDecimal Point
-PLAYERSTARTINGYPOS = 0648h;Player starting Point Y With FixedDecimal Point
-KnightDefultFName equ "KnightDe.bmp"
+PLAYERSTARTINGXPOS = 0A00h;Player starting Point X With FixedDecimal Point
+PLAYERSTARTINGYPOS = 0640h;Player starting Point Y With FixedDecimal Point
+KnightDefultFName equ "KnightDe.bmp";Name for file with defult frame
+KnightWalk1FName equ "KWalk1.bmp";Name for file with walk frame num 1
+KnightWalk2FName equ "KWalk2.bmp";Name for file with walk frame num 2
+EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
 KNIGHTLENGTHTRAVEL = 30h;With fixed Decimal point
 ;
 
 KeyboardInterruptPosition = 9 * 4
+
+;
+;Bullet Class attributes
+BULLETLENGTH = 50h;Fixed decimal point
+BULLETHEIGHT = 50h;shot is a cube
+BulletSpeed = 0a0h; speed of bullet vector
+BulletArrayLength = 16
 
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
@@ -55,23 +66,170 @@ DATASEG
 ;-------------
 
 ;My Variabls
-	XPlayer dw PLAYERSTARTINGXPOS
-	YPlayer dw PLAYERSTARTINGYPOS
-	AbleToBeHit db 0
-	AbleToAttack db 0
-	CanDodge db 0
-	CanShot db 0
-	KnightDefultFileName db KnightDefultFName, 0
+
+;Knight Variables
+	XPlayer dw PLAYERSTARTINGXPOS;Variable to represent the X position of the Knight (with fixed decimal point)
+	YPlayer dw PLAYERSTARTINGYPOS;Variable to represent the Y position of the Knight (with fixed decimal point)
+	
+	LastXPlayer dw ? ;save last X position to undraw later
+	LastYPlayer dw ? ;save last Y position to undraw later
+	
+	KNeedDraw db 1; bool to represent if the last position was saved and if Knight needs draw
+
+	;bool for condition of knight
+	KAbleToBeHit db 0 ;bool to represent if the knight can be hit
+
+	KCanDodge db 0;bool to represent if the knight can dodge roll
+	KCanShoot db 0 ;bool to represent if the knight can use a shot
+	KCanMove db 0 ;bool to represent if the knight can use a shot
 	
 	
 	
-	
+	KnightDefultFileName db KnightDefultFName, 0;File name of the defult Knight picture file
+	KnightWalk1FileName db KnightWalk1FName, 0
+	KnightWalk2FileName db KnightWalk2FName, 0
+	FrameNumber db 0;Variable to represent what frame of the walk the knight is in
+	KnightEraseFileName db EraseKnightFName, 0
+
 ;Async Keyboard Variables
 	oldintruptoffset dw ?
 	oldintruptsegment dw ?
 	key db ?
 	
+;bools to represent is each key was pressed
+	WPressed db 1
+	SPressed db 1
+	APressed db 1
+	DPressed db 1
 	
+	GameOn db 0
+
+;Bullet Class
+;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
+;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
+
+	BulletDrawArray db 2,2,2,2,2
+					db 2,2,2,2,2
+					db 2,2,2,2,2
+					db 2,2,2,2,2
+					db 2,2,2,2,2
+	BulletEraseArray db 25 dup (0)
+
+;Bullet Array
+	BulletOffsetArray dw Bullet1Active, Bullet2Active, Bullet3Active, Bullet4Active, Bullet5Active, Bullet6Active, Bullet7Active, Bullet8Active, Bullet9Active, Bullet10Active, Bullet11Active, Bullet12Active, Bullet13Active, Bullet14Active, Bullet15Active, Bullet16Active
+
+;Bullet1
+	Bullet1Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet1X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet1Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet1XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet1YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet2
+	Bullet2Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet2X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet2Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet2XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet2YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+
+;Bullet3
+	Bullet3Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet3X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet3Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet3XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet3YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet4
+	Bullet4Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet4X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet4Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet4XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet4YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet5
+	Bullet5Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet5X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet5Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet5XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet5YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet6
+	Bullet6Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet6X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet6Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet6XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet6YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet7
+	Bullet7Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet7X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet7Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet7XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet7YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet8
+	Bullet8Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet8X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet8Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet8XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet8YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+
+;Bullet9
+	Bullet9Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet9X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet9Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet9XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet9YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet10
+	Bullet10Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet10X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet10Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet10XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet10YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+
+;Bullet11
+	Bullet11Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet11X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet11Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet11XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet11YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet12
+	Bullet12Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet12X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet12Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet12XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet12YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet13
+	Bullet13Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet13X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet13Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet13XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet13YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet14
+	Bullet14Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet14X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet14Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet14XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet14YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet15
+	Bullet15Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet15X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet15Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet15XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet15YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	
+;Bullet16
+	Bullet16Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
+	Bullet16X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
+	Bullet16Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
+	Bullet16XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
+	Bullet16YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+
 	
 
 
@@ -85,9 +243,18 @@ start:
 ; --------------------------
 	call SetGraphic
 	call SetAsyncKeyboard
-l:
 	call DrawKnight
-	jmp l
+	call SetAsyncMouse
+	call ShowCurser
+GameLoop:
+	cmp [byte GameOn], 0
+	jnz endOfMainLoop
+	call CheckKeys
+	call Update_activated_Bullets
+	call LoopDelaypoint1Sec
+	jmp GameLoop
+endOfMainLoop:
+	call RestoreKeyboardInt
 ; --------------------------
 
 exit:
@@ -104,11 +271,347 @@ exit:
 ;----------------
 ;My Procedures
 
+proc ShowCurser
+	pusha
+	mov ax, 1
+	int 33h
+	popa
+	ret
+endp ShowCurser
+
+proc HideCurser
+	pusha
+	mov ax, 2
+	int 33h
+	popa
+	ret
+endp HideCurser
+
+proc SetAsyncMouse
+	pusha
+	mov ax, seg MouseHandle 
+	mov es, ax
+	mov dx, offset MouseHandle   ; ES:DX ->Far routine
+    mov ax,0Ch             ; interrupt number
+    mov cx,02h
+    int 33h
+	popa
+	ret
+endp SetAsyncMouse
+
+proc MouseHandle far
+	pusha
+	cmp [byte KCanShoot], 0
+	jnz @@endproc
+	mov cx, BulletArrayLength
+	xor di, di
+@@FindAndActivate:
+	mov bx, [BulletOffsetArray + di]
+	add di, 2
+	cmp [byte bx], 1
+	
+	jnz @@ActivatedAlready
+	mov si, bx
+	mov ax, 3
+	
+	int 33h
+	
+	shl cx, 3;fixed decimal
+	shl dx, 4;fixed decimal
+	
+	
+	mov ax, [XPlayer]
+	add ax, PLAYERLENGTH / 2
+	push ax
+	
+	mov ax, [YPlayer]
+	add ax, PLAYERHIGHT / 2
+	push ax
+	
+	push cx
+	
+	push dx
+	
+	push si
+	
+	call ActivateBullet
+	jmp @@FoundUnactiveBullet
+@@ActivatedAlready:
+	loop @@FindAndActivate
+@@FoundUnactiveBullet:
+	
+	
+	
+@@endproc:
+	
+	popa
+	retf
+endp MouseHandle
+
+;Input:1.Offset Bullet
+proc DrawBullet
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	cmp [byte bx], 0
+	jnz @@endproc
+	
+	sub sp, 2
+	push [Word bx + 1]
+	push [Word bx + 3]
+	call XYToMemory
+	
+	pop di
+	
+	mov [word matrix], offset BulletDrawArray
+	mov dx, BULLETLENGTH
+	shr dx, 4
+	mov cx, BULLETHEIGHT
+	shr cx, 4
+	call HideCurser
+	call putMatrixInScreen
+	call ShowCurser
+	;1. DX = Line Length, CX = Amount of Lines, Variable matrix = Offset of the matrix you want to print, DI = Location to Print on screen(0 - 64,000)
+@@endproc:
+	popa
+	pop bp
+	ret 2
+endp DrawBullet
+
+proc UndrawBullet
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	sub sp, 2
+	push [Word bx + 1]
+	push [Word bx + 3]
+	call XYToMemory
+	
+	pop di
+	
+	mov [word matrix], offset BulletEraseArray
+	mov dx, BULLETLENGTH
+	shr dx, 4
+	mov cx, BULLETHEIGHT
+	shr cx, 4
+	call HideCurser
+	call putMatrixInScreen
+	call ShowCurser
+	;1. DX = Line Length, CX = Amount of Lines, Variable matrix = Offset of the matrix you want to print, DI = Location to Print on screen(0 - 64,000)
+	popa
+	pop bp
+	ret 2
+endp UndrawBullet
+
+;Procedures for bullet "class"
+proc Update_activated_Bullets
+	push bx
+	push cx
+	push si
+	
+	mov cx, BulletArrayLength
+	xor si, si
+@@UpdateIfActivated:
+	mov bx, [BulletOffsetArray + si]
+	cmp [byte bx], 0
+	jnz @@NotActive
+	push bx
+	call UndrawBullet
+	push bx
+	call MoveBullet
+	push bx
+	call DrawBullet
+@@NotActive:
+	add si, 2
+	loop @@UpdateIfActivated
+	
+	pop si
+	pop cx
+	pop bx
+	ret
+endp Update_activated_Bullets
+
+;Input: 1.offset bullet
+proc MoveBullet
+	push bp
+	mov bp, sp
+	push bx
+	push cx
+	
+	
+	mov bx, [word bp + 4]
+	
+	
+	mov cx, [word bx + 5]
+	add [word bx + 1], cx;add x
+	cmp [word bx + 1], 0h
+	jnle @@NotHitLeftWall
+	mov [byte bx], 1;bullet hit left wall
+	push bx
+	call UndrawBullet
+@@NotHitLeftWall:
+
+	mov cx, [word bx + 1]
+	add cx, BULLETHEIGHT
+	cmp cx, MaxBoardLength
+	jnae @@NotHitRightWall
+	mov [byte bx], 1;bullet hit right wall
+	push bx
+	call UndrawBullet
+@@NotHitRightWall:
+
+	
+	
+	mov cx, [word bx + 7]
+	add [bx + 3], cx;add y
+	
+	cmp [word bx + 3], 0
+	jnle @@NotHitUpperWall
+	mov [byte bx], 1;bullet hit upper wall
+	push bx
+	call UndrawBullet
+@@NotHitUpperWall:
+	
+	mov cx, [word bx + 3]
+	add cx, BULLETHEIGHT
+	cmp cx, MaxBoardHeight
+	jnae @@NotHitLowerWall
+	mov [byte bx], 1;bullet hit lower wall
+	push bx
+	call UndrawBullet
+@@NotHitLowerWall:
+	
+	pop cx
+	pop bx
+	pop bp
+	ret 2
+endp MoveBullet
+
+;Description: Activates an unactivated bullet
+;Input: 1.XStart[bp + 12] 2.YStart[bp + 10] 3.XTarget[bp + 8] 4.YTarget[bp + 6] 5.Bullet offset[bp + 4]
+;Output: Changes Bullets attributes
+proc ActivateBullet
+	push bp
+	mov bp, sp
+	
+	push bx
+	push cx
+	push dx
+	push di
+	push si
+	
+	mov bx, [bp + 4];Bx -> offset Bullet
+	
+	mov [byte bx], 0
+	
+	mov cx, [bp + 12]
+	mov [word bx + 1], cx
+	
+	mov si, [bp + 10]
+	mov [word bx + 3], si
+	
+	mov dx, [bp + 8]
+	mov di, [bp + 6]
+	
+	cmp dx, cx
+	ja @@Target_Is_Right1
+	cmp di, si
+	ja @@Target_Is_Below1
+	
+	sub sp, 4;Target X and Y are smaller then X and Y start
+	push dx
+	push di
+	push cx
+	push si
+	push BulletSpeed
+	call XYtoAdd2Dots
+	pop cx
+	pop si
+	neg cx
+	neg si
+	jmp @@VectorCalculated
+@@Target_Is_Below1:
+	sub sp, 4;Target X is smaller then X start
+	push dx
+	push si
+	push cx
+	push di
+	push BulletSpeed
+	call XYtoAdd2Dots
+	pop cx
+	pop si
+	neg cx
+
+	jmp @@VectorCalculated
+@@Target_Is_Right1:
+	cmp di, si
+	ja @@Target_Is_Below2
+	sub sp, 4;Target Y is smaller then Y start
+	push cx
+	push di
+	push dx
+	push si
+	push BulletSpeed
+	call XYtoAdd2Dots
+	pop cx
+	pop si
+	neg si
+	jmp @@VectorCalculated
+@@Target_Is_Below2:
+
+	sub sp, 4;Both X and Y are ok
+	push cx
+	push si
+	push dx
+	push di
+	push BulletSpeed
+	call XYtoAdd2Dots
+	pop cx
+	pop si
+	jmp @@VectorCalculated
+@@VectorCalculated:
+
+	mov [word bx + 5], cx
+	mov [word bx + 7], si
+	;call MoveBullet
+	;call MoveBullet
+	pop si
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop bp
+	ret 10
+endp ActivateBullet
 
 
 
 
-; this procedure is temporary
+;Description: Delays game for 0.1 seconds(3000 cycles)
+proc LoopDelaypoint1Sec
+	push cx
+	mov cx ,50
+@@Self1:
+	push cx
+	mov cx,3000   
+@@Self2:	
+	loop @@Self2
+	pop cx
+	loop @@Self1
+	pop cx
+	ret
+endp LoopDelaypoint1Sec
+
+
+
+
+; thess procedures are temporary
+
 proc printAxDec  
 	   
        push bx
@@ -149,6 +652,11 @@ pop_next_from_stack:
 	   
        ret
 endp printAxDec
+
+;End of temp procedures
+
+
+
 
 
 ;Description:Makes Keyboard Async
@@ -231,40 +739,68 @@ proc Keyboard_handler near
     push si
     push di
 
-    in al, 64h
-    test al, 01h
+    ; in al, 64h
+    ; test al, 01h
 
     ; Gets the pressed key and stores it in [key]
     in al, 60h         
-    mov [key], al
+    mov [byte key], al
 
     mov al, 20h
     out 20h, al
 	
-	cmp [key], 11h
+	cmp [byte key], 11h
 	jnz @@NotW
-	call KMoveUp
+	mov [WPressed], 0
 	jmp @@endproc
 @@NotW:
-	
-	cmp [key], 01fh
+
+	cmp [byte key], 91h
+	jnz @@NotWR
+	mov [WPressed], 1
+	jmp @@endproc
+@@NotWR:
+
+	cmp [byte key], 01fh
 	jnz @@NotS
-	call KMoveDown
+	mov [SPressed], 0
 	jmp @@endproc
 @@NotS:
 	
-	cmp [key], 1eh
+	cmp [byte key], 09fh
+	jnz @@NotSR
+	mov [SPressed], 1
+	jmp @@endproc
+@@NotSR:
+	
+	cmp [byte key], 1eh
 	jnz @@NotA
-	call KMoveLeft
+	mov [APressed], 0
 	jmp @@endproc
 @@NotA:
 
-	cmp [key], 20h
+	cmp [byte key], 9eh
+	jnz @@NotAR
+	mov [APressed], 1
+	jmp @@endproc
+@@NotAR:
+
+	cmp [byte key], 20h
 	jnz @@NotD
-	call KMoveRight
+	mov [DPressed], 0
 	jmp @@endproc
 @@NotD:
+
+	cmp [byte key], 0a0h
+	jnz @@NotDR
+	mov [DPressed], 1
+	jmp @@endproc
+@@NotDR:
 	
+	cmp [byte key], 1
+	jnz @@NotESC
+	mov [GameOn], 1
+@@NotESC:
 	
 	
 @@endproc:
@@ -289,6 +825,7 @@ proc KMoveUp
 	mov bx, 0
 @@Moved:
 	mov [YPlayer], bx
+@@endproc:
 	pop bx
 	ret
 endp KMoveUp
@@ -304,12 +841,14 @@ proc KMoveDown
 @@Moved:
 	sub bx, PLAYERHIGHT
 	mov [YPlayer], bx
+@@endproc:
 	pop bx
 	ret
 endp KMoveDown
 
 proc KMoveRight
 	push bx
+	
 	mov bx, [XPlayer]
 	add bx, PLAYERLENGTH
 	add bx, KNIGHTLENGTHTRAVEL
@@ -319,6 +858,7 @@ proc KMoveRight
 @@Moved:
 	sub bx, PLAYERLENGTH
 	mov [XPlayer], bx
+@@endproc:
 	pop bx
 	ret
 endp KMoveRight
@@ -331,9 +871,78 @@ proc KMoveLeft
 	mov bx, 0
 @@Moved:
 	mov [XPlayer], bx
+@@endproc:
 	pop bx
 	ret
 endp KMoveLeft
+
+proc CheckKeys
+	push ax
+	push dx
+	push cx
+	push di
+	
+	
+	
+	mov ax, [XPlayer]
+	mov [LastXPlayer], ax
+	
+	mov ax, [YPlayer]
+	mov [LastYPlayer], ax
+	
+	
+	cmp [APressed], 0
+	jnz @@ANotpressed
+	
+	
+	mov [KNeedDraw], 0
+	
+	call KMoveLeft
+@@ANotpressed:
+	
+	
+	cmp [DPressed], 0
+	jnz @@DNotpressed
+	
+	mov [KNeedDraw], 0
+
+	call KMoveRight
+@@DNotpressed:
+
+
+	cmp [SPressed], 0
+	jnz @@SNotpressed
+	
+	mov [KNeedDraw], 0
+	
+	call KMoveDown
+@@SNotpressed:
+
+	cmp [WPressed], 0
+	jnz @@WNotpressed
+	
+	
+	
+	mov [KNeedDraw], 0
+
+	
+	call KMoveUp
+@@WNotpressed:
+	
+	cmp [KNeedDraw], 0
+	jnz @@NoDraw
+	call UndrawKnight
+	call DrawKnight
+	
+@@NoDraw:
+	mov [KNeedDraw], 1
+	
+	pop di
+	pop cx
+	pop dx
+	pop ax
+	ret
+endp CheckKeys
 
 ;Description: Draws Knight
 ;Input: Input in the Knight variables
@@ -341,8 +950,30 @@ endp KMoveLeft
 proc DrawKnight
 	push dx
 	
+	cmp [FrameNumber], 0
+	jnz @@NotFrame1
 	mov dx, offset KnightDefultFileName
+@@NotFrame1:
 	
+	cmp [FrameNumber], 1
+	jnz @@NotFrame2
+	mov dx, offset KnightWalk1FileName
+@@NotFrame2:
+
+	cmp [FrameNumber], 2
+	jnz @@NotFrame3
+	mov dx, offset KnightWalk2FileName
+@@NotFrame3:
+
+	inc [FrameNumber];inc for next time this draws
+	
+	cmp [FrameNumber], 2;if the counter is above 2(there are 3 pictures)
+	jna @@FrameNumberOk
+	
+	mov [FrameNumber], 0
+	
+@@FrameNumberOk:
+
 	sub sp, 2
 	push [XPlayer]
 	call RemoveFixedDecimalPoint
@@ -362,11 +993,85 @@ proc DrawKnight
 	push PLAYERHIGHT
 	call RemoveFixedDecimalPoint
 	pop [BmpRowSize]
-	
+	call HideCurser
 	call OpenShowBmp
+	call ShowCurser
+	pop dx
+	ret
+endp DrawKnight
+
+
+
+;Description: Undraw Knight From His last position (LastXPlayer, LastYPlayer)
+;Input: Input in the Knight variables
+;Output: On screem
+proc UndrawKnight
+	; push dx
+	; push cx
+	; push di
+	; push ax
+	
+	; sub sp, 2
+	; push PLAYERLENGTH
+	; call RemoveFixedDecimalPoint
+	; pop dx
+	
+	; sub sp, 2
+	; push PLAYERHIGHT
+	; call RemoveFixedDecimalPoint
+	; pop cx
+	;inc cx;?
+	
+	; mov [matrix], offset HugeEraseMatrix
+	; sub sp, 2
+	; push [LastXPlayer]
+	; push [LastYPlayer]
+	; mov ax, [LastYPlayer]
+	; add ax, 10000b
+	; push ax
+	; call XYToMemory
+	; pop di
+	
+	; call putMatrixInScreen
+	
+	; pop ax
+	; pop di
+	; pop cx
+	; pop dx
+	; ret
+	push dx
+	
+	mov dx, offset KnightEraseFileName
+	
+	sub sp, 2
+	push [LastXPlayer]
+	call RemoveFixedDecimalPoint
+	pop [BmpLeft]
+	
+	sub sp, 2
+	push [LastYPlayer]
+	call RemoveFixedDecimalPoint
+	pop [BmpTop]
+	
+	sub sp, 2
+	push PLAYERLENGTH
+	call RemoveFixedDecimalPoint
+	pop [BmpColSize]
+	
+	sub sp, 2
+	push PLAYERHIGHT
+	call RemoveFixedDecimalPoint
+	pop [BmpRowSize]
+	
+	call HideCurser
+	call OpenShowBmp
+	call ShowCurser
 	
 	pop dx
-endp DrawKnight
+	ret
+endp UndrawKnight
+
+
 
 ;Description:Gets a number with a fixed decimal point and returns the number rounded without the fixed decimal point
 ;Input: Through stack 1.number
