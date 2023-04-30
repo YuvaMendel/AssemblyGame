@@ -22,7 +22,8 @@ KnightDefultFName equ "KnightDe.bmp";Name for file with defult frame
 KnightWalk1FName equ "KWalk1.bmp";Name for file with walk frame num 1
 KnightWalk2FName equ "KWalk2.bmp";Name for file with walk frame num 2
 EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
-KNIGHTLENGTHTRAVEL = 30h;With fixed Decimal point
+KNIGHTLENGTHTRAVEL = 20h;With fixed Decimal point
+KShootCycleCoolDown = 7;Const that holds the number of cycels the player has cooldown on shooting
 ;
 
 KeyboardInterruptPosition = 9 * 4
@@ -31,8 +32,14 @@ KeyboardInterruptPosition = 9 * 4
 ;Bullet Class attributes
 BULLETLENGTH = 50h;Fixed decimal point
 BULLETHEIGHT = 50h;shot is a cube
-BulletSpeed = 0a0h; speed of bullet vector
+BulletSpeed = 040h; speed of bullet vector
 BulletArrayLength = 16
+
+
+;Zombi class Const
+ZombiHeight = 0c0h;Zombi Height
+ZombiLength = 080h;Zombi Length
+
 
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
@@ -81,6 +88,7 @@ DATASEG
 
 	KCanDodge db 0;bool to represent if the knight can dodge roll
 	KCanShoot db 0 ;bool to represent if the knight can use a shot
+	KShootCoolDown db 0 ;counter to make shooting go on "cooldown"
 	KCanMove db 0 ;bool to represent if the knight can use a shot
 	
 	
@@ -108,6 +116,10 @@ DATASEG
 ;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
 ;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
 
+	
+	
+	
+	
 	BulletDrawArray db 2,2,2,2,2
 					db 2,2,2,2,2
 					db 2,2,2,2,2
@@ -234,6 +246,20 @@ DATASEG
 
 
 
+
+
+;Zombi Class
+;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
+;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
+	
+;Zombi1
+	Zombi1Active db 1;bool to represent if the zombi is alive/active; offset + 0
+	Zombi1X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
+	Zombi1Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
+	Zombi1XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
+	Zombi1YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
+	ZombiHP db 100;Variable to representthe amount of hp the zombi has; offset + 8
+
 ; --------------------------
 
 CODESEG
@@ -249,6 +275,7 @@ start:
 GameLoop:
 	cmp [byte GameOn], 0
 	jnz endOfMainLoop
+	call UpdateShootCoolDown
 	call CheckKeys
 	call Update_activated_Bullets
 	call LoopDelaypoint1Sec
@@ -270,6 +297,92 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+
+
+
+;Description: Activates a Zombi
+;Input: through stack 1. offset zombi
+proc ActivateZmbRnd
+	push bp
+	mov bp, sp
+	pusha
+	
+	
+	mov bx, [bp + 4]
+	
+	mov [byte bx], 0
+	
+	mov cx, MaxBoardLength / 2; cx - > Half of the length of the map
+	mov dx, MaxBoardHeight / 2; dx - > Half of the Height of the map
+	
+	mov bl, 1
+	mov bh, 4
+	call RandomByCs
+	
+	mov bx, [bp + 4]
+	
+	cmp al, 1
+	jz @@zmbStartRight
+	cmp al, 2
+	jz @@zmbStartLeft
+	cmp al, 3
+	jz @@zmbStartUp
+	cmp al, 4
+	jz @@zmbStartDown
+	jmp @@XYAreSet
+	
+	
+@@zmbStartDown:
+	mov [word bx + 1], cx
+	
+	mov [word bx + 3], MaxBoardHeight - ZombiHeight
+	
+	jmp @@XYAreSet
+@@zmbStartUp:
+	mov [word bx + 1], cx
+	
+	mov [word bx + 3], 0
+	
+	
+	
+	jmp @@XYAreSet
+@@zmbStartLeft:
+	
+	mov [word bx + 1], 0
+	
+	mov [word bx + 3], dx
+	
+	
+	jmp @@XYAreSet
+@@zmbStartRight:
+	
+	mov [word bx + 3], dx
+	
+	mov [word bx + 1], MaxBoardLength - ZombiLength
+	
+	jmp @@XYAreSet
+	
+@@XYAreSet:
+	popa
+	ret 2
+endp ActivateZmbRnd
+
+
+
+;Description: Updates bool (KCanShoot) after a constant number of cycles (KShootCycleCoolDown) by comparing KShootCoolDown Variable
+proc UpdateShootCoolDown
+	cmp [byte KCanShoot], 0
+	jz @@endproc
+	inc [byte KShootCoolDown]
+	cmp [byte KShootCoolDown], KShootCycleCoolDown
+	jnz @@endproc
+	mov [byte KCanShoot], 0
+	mov [byte KShootCoolDown], 0
+@@endproc:
+	ret
+endp UpdateShootCoolDown
+
+
 
 proc ShowCurser
 	pusha
@@ -338,7 +451,11 @@ proc MouseHandle far
 	jmp @@FoundUnactiveBullet
 @@ActivatedAlready:
 	loop @@FindAndActivate
+	jmp @@NotFoundUnactiveBullet
 @@FoundUnactiveBullet:
+	mov [KCanShoot], 1;put on cooldown
+	jmp @@endproc
+@@NotFoundUnactiveBullet:
 	
 	
 	
@@ -578,8 +695,14 @@ proc ActivateBullet
 
 	mov [word bx + 5], cx
 	mov [word bx + 7], si
-	;call MoveBullet
-	;call MoveBullet
+	
+	push bx
+	call MoveBullet
+	push bx
+	call MoveBullet
+	push bx
+	call MoveBullet
+	
 	pop si
 	pop di
 	pop dx
@@ -1368,6 +1491,7 @@ endp XYtoAdd2Dots
 ; 	Make sure the cs size is 50 bytes or more 
 ; 	(if not, make it to be more) 
 proc RandomByCs
+	
     push es
 	push si
 	push di
@@ -1406,6 +1530,7 @@ RandLoop: ;  generate random number
 	pop di
 	pop si
 	pop es
+	
 	ret
 endp RandomByCs
 
