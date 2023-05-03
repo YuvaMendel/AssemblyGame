@@ -38,8 +38,19 @@ BulletArrayLength = 16
 
 ;Zombi class Const
 ZombiHeight = 0c0h;Zombi Height
-ZombiLength = 080h;Zombi Length
+ZombiLength = 0a0h;Zombi Length
 
+ZombieWalkRight1FName equ "ZMBWR1.bmp"
+ZombieWalkRight2FName equ "ZMBWR2.bmp"
+
+ZombieWalkLeft1FName equ "ZMBWL1.bmp"
+ZombieWalkLeft2FName equ "ZMBWL2.bmp"
+
+EraseZombieFName equ "EraseZMB.bmp"
+
+NumberOfZombies = 1
+
+ZombieHP = 100;Zombie HP
 
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
@@ -248,17 +259,29 @@ DATASEG
 
 
 
-;Zombi Class
+;Zombie Class
 ;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
 ;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
 	
+;Zombi Offset Array
+	ZombieOffsetArray dw Zombie1Active
+	ZMBWL1FileName db ZombieWalkLeft1FName, 0
+	ZMBWL2FileName db ZombieWalkLeft2FName, 0
+	
+	ZMBWR1FileName db ZombieWalkRight1FName, 0
+	ZMBWR2FileName db ZombieWalkRight2FName, 0
+	
+	ZMBEraseFileName db EraseZombieFName, 0
+	
 ;Zombi1
-	Zombi1Active db 1;bool to represent if the zombi is alive/active; offset + 0
-	Zombi1X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
-	Zombi1Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
-	Zombi1XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
-	Zombi1YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
-	ZombiHP db 100;Variable to representthe amount of hp the zombi has; offset + 8
+	Zombie1Active db 1;bool to represent if the zombie is alive/active; offset + 0
+	Zombie1X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
+	Zombie1Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
+	Zombie1XToAdd dw 05h;Variable to represent the X that will be added each time; offset + 5
+	Zombie1YToAdd dw 05h;Variable to represent the Y that will be added each time; offset + 7
+	Zombie1HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
+	Zombie1WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
+	Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
 
 ; --------------------------
 
@@ -272,12 +295,16 @@ start:
 	call DrawKnight
 	call SetAsyncMouse
 	call ShowCurser
+	mov bx,  offset Zombie1Active
+	push bx
+	call ActivateZmbRnd
 GameLoop:
 	cmp [byte GameOn], 0
 	jnz endOfMainLoop
 	call UpdateShootCoolDown
 	call CheckKeys
 	call Update_activated_Bullets
+	call CheckandUpdateallZombies
 	call LoopDelaypoint1Sec
 	jmp GameLoop
 endOfMainLoop:
@@ -298,9 +325,171 @@ exit:
 ;----------------
 ;My Procedures
 
+;Description: Draws Zombie
+;Input: through stack 1.offset zombie
+proc DrawZombie
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	cmp [byte bx], 0
+	jnz @@endproc
+	
+	cmp [byte bx + 10], 0
+	jnz @@NotFirstFrame
+	cmp [byte bx + 11], 0
+	jnz @@LeftFrame1
+	;RightFrame1
+	mov dx, offset ZMBWR1FileName
+	jmp @@PictureSelected
+@@LeftFrame1:
+	mov dx, offset ZMBWL1FileName
+	jmp @@PictureSelected
+@@NotFirstFrame:
+	cmp [byte bx + 11], 0
+	jnz @@LeftFrame2
+	;RightFrame2
+	mov dx, offset ZMBWR2FileName
+	jmp @@PictureSelected
+@@LeftFrame2:
+	mov dx, offset ZMBWL2FileName
+	jmp @@PictureSelected
+	
+	
+@@PictureSelected:
 
+	inc [byte bx + 10];inc for next time this zombie is drawn
+	
+	cmp [byte bx + 10], 2;if the counter is above 2(there are 2 pictures)
+	jna @@FrameNumberOk
+	
+	mov [byte bx + 10], 0
+	
+@@FrameNumberOk:
 
-;Description: Activates a Zombi
+	sub sp, 2
+	push [word bx + 1]
+	call RemoveFixedDecimalPoint
+	pop [BmpLeft]
+	
+	sub sp, 2
+	push [word bx + 3]
+	call RemoveFixedDecimalPoint
+	pop [BmpTop]
+	
+	sub sp, 2
+	push ZombiLength
+	call RemoveFixedDecimalPoint
+	pop [BmpColSize]
+	
+	sub sp, 2
+	push ZombiHeight
+	call RemoveFixedDecimalPoint
+	pop [BmpRowSize]
+	
+	call HideCurser
+	call OpenShowBmp
+	call ShowCurser
+	
+@@endproc:
+	popa
+	pop bp
+	ret 2
+endp DrawZombie
+
+;Description: Erase A Zombie from screen
+;Input: Through Stack 1.Zombie Offset
+proc UndrawZombie
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	mov dx, offset ZMBEraseFileName
+	
+	sub sp, 2
+	push [word bx + 1]
+	call RemoveFixedDecimalPoint
+	pop [BmpLeft]
+	
+	sub sp, 2
+	push [word bx + 3]
+	call RemoveFixedDecimalPoint
+	pop [BmpTop]
+	
+	sub sp, 2
+	push ZombiLength
+	call RemoveFixedDecimalPoint
+	pop [BmpColSize]
+	
+	sub sp, 2
+	push ZombiHeight
+	call RemoveFixedDecimalPoint
+	pop [BmpRowSize]
+	
+	call HideCurser
+	call OpenShowBmp
+	call ShowCurser
+	
+	popa
+	pop bp
+	ret 2
+endp UndrawZombie
+
+;Description: Go over zombie array and update them
+proc CheckandUpdateallZombies
+	pusha
+	mov cx, NumberOfZombies
+	
+	xor di, di
+	
+@@loopUpdate:
+	push [ZombieOffsetArray + di]
+	call UpdateZombie
+	add di, 2
+	loop @@loopUpdate
+	
+	popa
+	ret
+endp CheckandUpdateallZombies
+
+;Description: Update a Specific Zombie
+proc UpdateZombie
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	cmp [byte bx], 0
+	jnz @@endproc
+	
+	cmp [byte bx + 9], 0;if Zombie Has HP
+	jnz @@Alive;You have to make sure that the hp is 0 when enemy is killed not lower (signed)
+	mov [byte bx], 1;Update to "dead"
+	push bx
+	call UndrawZombie
+	jmp @@endproc
+@@Alive:
+	push bx
+	call UndrawZombie
+	mov si, [word bx + 5]
+	add [word bx + 1], si
+	
+	mov si, [word bx + 7]
+	add [word bx + 3], si
+	push bx
+	call DrawZombie
+	
+@@endproc:
+	popa
+	pop bp
+	ret 2
+endp UpdateZombie
+
+;Description: Activates a Zombi to a random place
 ;Input: through stack 1. offset zombi
 proc ActivateZmbRnd
 	push bp
@@ -332,13 +521,13 @@ proc ActivateZmbRnd
 	jmp @@XYAreSet
 	
 	
-@@zmbStartDown:
+@@zmbStartDown:;Zombi starts down
 	mov [word bx + 1], cx
 	
 	mov [word bx + 3], MaxBoardHeight - ZombiHeight
 	
 	jmp @@XYAreSet
-@@zmbStartUp:
+@@zmbStartUp:;Zombi starts up
 	mov [word bx + 1], cx
 	
 	mov [word bx + 3], 0
@@ -346,7 +535,7 @@ proc ActivateZmbRnd
 	
 	
 	jmp @@XYAreSet
-@@zmbStartLeft:
+@@zmbStartLeft:;Zombi starts Left
 	
 	mov [word bx + 1], 0
 	
@@ -354,7 +543,7 @@ proc ActivateZmbRnd
 	
 	
 	jmp @@XYAreSet
-@@zmbStartRight:
+@@zmbStartRight:;Zombi starts Right
 	
 	mov [word bx + 3], dx
 	
@@ -363,7 +552,13 @@ proc ActivateZmbRnd
 	jmp @@XYAreSet
 	
 @@XYAreSet:
+
+	mov [byte bx + 9], ZombieHP;Restore hp
+	
+	
+	
 	popa
+	pop bp
 	ret 2
 endp ActivateZmbRnd
 
