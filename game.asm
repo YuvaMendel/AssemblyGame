@@ -22,7 +22,7 @@ KnightDefultFName equ "KnightDe.bmp";Name for file with defult frame
 KnightWalk1FName equ "KWalk1.bmp";Name for file with walk frame num 1
 KnightWalk2FName equ "KWalk2.bmp";Name for file with walk frame num 2
 EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
-KNIGHTLENGTHTRAVEL = 20h;With fixed Decimal point
+KNIGHTLENGTHTRAVEL = 13h;With fixed Decimal point
 KShootCycleCoolDown = 7;Const that holds the number of cycels the player has cooldown on shooting
 ;
 
@@ -32,8 +32,9 @@ KeyboardInterruptPosition = 9 * 4
 ;Bullet Class attributes
 BULLETLENGTH = 50h;Fixed decimal point
 BULLETHEIGHT = 50h;shot is a cube
-BulletSpeed = 040h; speed of bullet vector
+BulletSpeed = 027h; speed of bullet vector
 BulletArrayLength = 16
+BulletDamage = 100
 
 
 ;Zombi class Const
@@ -277,7 +278,7 @@ DATASEG
 	Zombie1Active db 1;bool to represent if the zombie is alive/active; offset + 0
 	Zombie1X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
 	Zombie1Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
-	Zombie1XToAdd dw 05h;Variable to represent the X that will be added each time; offset + 5
+	Zombie1XToAdd dw 0FFFbh;Variable to represent the X that will be added each time; offset + 5
 	Zombie1YToAdd dw 05h;Variable to represent the Y that will be added each time; offset + 7
 	Zombie1HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
 	Zombie1WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
@@ -362,7 +363,7 @@ proc DrawZombie
 
 	inc [byte bx + 10];inc for next time this zombie is drawn
 	
-	cmp [byte bx + 10], 2;if the counter is above 2(there are 2 pictures)
+	cmp [byte bx + 10], 2;if the counter is above 1(there are 2 pictures)
 	jna @@FrameNumberOk
 	
 	mov [byte bx + 10], 0
@@ -475,11 +476,19 @@ proc UpdateZombie
 @@Alive:
 	push bx
 	call UndrawZombie
-	mov si, [word bx + 5]
-	add [word bx + 1], si
 	
-	mov si, [word bx + 7]
-	add [word bx + 3], si
+	push bx
+	call MoveZombie
+	
+	cmp [byte bx + 5], 0;Choosing what picture
+	jg @@ZombieGoingRight
+	;Zombie going left
+	mov [byte bx + 11], 1;left picture
+	jmp @@SideChosen
+@@ZombieGoingRight:
+	mov [byte bx + 11], 0;right picture
+	jmp @@SideChosen
+@@SideChosen:
 	push bx
 	call DrawZombie
 	
@@ -488,6 +497,52 @@ proc UpdateZombie
 	pop bp
 	ret 2
 endp UpdateZombie
+
+;Description: Moves a Zombie
+;Input: Through stack: 1.offset Zombie
+proc MoveZombie
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	mov cx, [bx+ 5]
+	
+	add [word bx + 1], cx
+	cmp [word bx + 1], 0
+	jnle @@NotHitLeftWall
+	mov [word bx + 1], 0
+@@NotHitLeftWall:
+
+	mov cx, [bx + 1]
+	add cx, ZombiLength
+	cmp cx, MaxBoardLength
+	jnge @@NotHitRightWall
+	mov [word bx + 1], MaxBoardLength - ZombiLength
+@@NotHitRightWall:
+
+	mov cx, [bx + 7]
+	
+	add [word bx + 3], cx
+	cmp [word bx + 3], 0
+	jnle @@NotHitUpperWall
+	mov [word bx + 3], 0
+@@NotHitUpperWall:
+	
+	mov cx, [bx + 3]
+	
+	add cx, ZombiHeight
+	
+	cmp cx, MaxBoardHeight
+	jnge @@NotHitLowerWall
+	mov [word bx + 3], MaxBoardHeight - ZombiHeight
+@@NotHitLowerWall:
+	
+	popa
+	pop bp
+	ret 2
+endp MoveZombie
 
 ;Description: Activates a Zombi to a random place
 ;Input: through stack 1. offset zombi
@@ -736,6 +791,10 @@ proc Update_activated_Bullets
 	call UndrawBullet
 	push bx
 	call MoveBullet
+	
+	push bx 
+	call CheckBulletHitZombies
+	
 	push bx
 	call DrawBullet
 @@NotActive:
@@ -797,12 +856,150 @@ proc MoveBullet
 	push bx
 	call UndrawBullet
 @@NotHitLowerWall:
+
+
+	
 	
 	pop cx
 	pop bx
 	pop bp
 	ret 2
 endp MoveBullet
+
+;Description: Checks of a bullet hit any Zombies
+;Input: Through stack: 1. offset Bullet
+proc CheckBulletHitZombies
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	xor di, di
+	
+	mov cx, NumberOfZombies
+@@NextZombie:
+	
+	mov si, [word ZombieOffsetArray + di]
+	
+	cmp [byte si], 0
+	jnz @@ZombieDead
+	
+	sub sp, 2
+	push [word si + 1]
+	push [word si + 3]
+	push ZombiLength
+	push ZombiHeight
+	push [word bx + 1]
+	push [word bx + 3]
+	push BULLETLENGTH
+	push BULLETHEIGHT
+	call CheckCollision
+	pop ax
+	;Right Now ax has a bool that tells if the bullet hit the zombies
+	cmp ax, 0
+	jnz @@NoCollision
+	push bx
+	push si
+	call KnightShotZombie
+	
+@@NoCollision:
+	
+@@ZombieDead:
+	
+	add di, 2
+	loop @@NextZombie
+	
+	popa
+	pop bp
+	ret 2
+endp CheckBulletHitZombies
+
+;Description: Knight shot a Zombie, this procedure makes the nececary changes to the bullets and the Zombies properties
+;Input:Through stack 1.Bullet offset(bp + 6) 2.Zombie offset(bp + 4)
+proc KnightShotZombie
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	mov di, [bp + 6]
+	
+	sub [byte bx + 9], BulletDamage
+	jnc @@NotKill
+	mov [byte bx + 9], 0
+@@NotKill:
+	mov [byte di], 1
+	push di
+	call UndrawBullet
+	
+	popa
+	pop bp
+	ret 4
+endp KnightShotZombie
+
+
+;Description: checks if 2 rectangles are in collision
+;Input: Through stack: 1.sub sp, 2 (make room for returning value)(bp + 20) 2.X1 (bp + 18) 3.Y1(bp + 16) 4. 1Length (bp + 14) 5.1Height (bp + 12) 6.X2 (bp + 10) 7.Y2 (bp + 8) 8.2Length (bp + 6) 9.2Height (bp + 4]
+;Output: Through stack 1.bool - are coliding
+;Requirements: Make room in stack sub sp, 2
+proc CheckCollision
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov cx, [bp+ 18]; cx -> x1
+	
+	mov si, [bp + 16]; si -> y1
+	
+	mov dx, [bp + 10]; dx -> x2
+	
+	mov di, [bp + 8]; di -> y2
+	
+	
+	add cx, [bp + 14]; cx -> x1end
+	
+	cmp cx, dx
+	jb @@NotColide
+	
+	sub cx, [bp + 14]; cx -> x1
+	
+	add dx, [bp + 6]; dx -> x2end
+	
+	cmp cx, dx
+	ja @@NotColide
+	
+	add si, [bp + 12] ; si -> y1end
+	
+	cmp si, di
+	
+	jb @@NotColide
+	
+	sub si, [bp + 12] ; si -> y1
+	
+	add di, [bp + 4] ; di -> y2end
+	
+	cmp si, di
+	ja @@NotColide
+	
+;The rectangels colide
+	
+	mov [word bp + 20], 0
+	
+	jmp @@endproc
+	
+@@NotColide:
+	
+	mov [word bp + 20], 1
+	
+	jmp @@endproc
+
+@@endproc:
+	popa
+	pop bp
+	ret 16
+endp CheckCollision
 
 ;Description: Activates an unactivated bullet
 ;Input: 1.XStart[bp + 12] 2.YStart[bp + 10] 3.XTarget[bp + 8] 4.YTarget[bp + 6] 5.Bullet offset[bp + 4]
@@ -897,6 +1094,10 @@ proc ActivateBullet
 	call MoveBullet
 	push bx
 	call MoveBullet
+	push bx
+	call MoveBullet
+	push bx
+	call MoveBullet
 	
 	pop si
 	pop di
@@ -913,7 +1114,7 @@ endp ActivateBullet
 ;Description: Delays game for 0.1 seconds(3000 cycles)
 proc LoopDelaypoint1Sec
 	push cx
-	mov cx ,50
+	mov cx ,30
 @@Self1:
 	push cx
 	mov cx,3000   
