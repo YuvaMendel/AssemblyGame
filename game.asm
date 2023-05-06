@@ -53,8 +53,9 @@ NumberOfZombies = 1
 
 ZombieHP = 100;Zombie HP
 
-ZMBSPEED = 18h;Zombie Speed
+ZMBSPEED = 9h;Zombie Speed
 
+ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
 MaxBoardHeight = 0c80h ;With fixed decimal point
@@ -308,7 +309,7 @@ GameLoop:
 	call CheckKeys
 	call Update_activated_Bullets
 	call CheckandUpdateallZombies
-	call LoopDelaypoint1Sec
+	call LoopDelay
 	jmp GameLoop
 endOfMainLoop:
 	call RestoreKeyboardInt
@@ -422,7 +423,7 @@ proc SetZombieBehavior
 	
 	push ZMBSPEED
 	
-	call XYtoAdd2Dots
+	call XYtoAdd2DotsWithNeg
 	
 	pop [word bx + 5]
 	pop [word bx + 7]
@@ -508,6 +509,15 @@ proc UpdateZombie
 @@Alive:
 	push bx
 	call UndrawZombie
+	
+	inc [word bx + 12]
+	cmp [word bx + 12], ZMBBehaviorRefreshRate
+	jb @@BehaviorOK
+	mov [word bx + 12], 0
+	push bx
+	call SetZombieBehavior
+	
+@@BehaviorOK:
 	
 	push bx
 	call MoveZombie
@@ -1145,10 +1155,10 @@ endp ActivateBullet
 
 
 
-;Description: Delays game for 0.1 seconds(3000 cycles)
-proc LoopDelaypoint1Sec
+;Description: Delays game
+proc LoopDelay
 	push cx
-	mov cx ,30
+	mov cx ,20
 @@Self1:
 	push cx
 	mov cx,3000   
@@ -1158,7 +1168,7 @@ proc LoopDelaypoint1Sec
 	loop @@Self1
 	pop cx
 	ret
-endp LoopDelaypoint1Sec
+endp LoopDelay
 
 
 
@@ -1968,6 +1978,8 @@ proc XYtoAdd2DotsWithNeg
 	push cx
 	push di
 	push [word bp + 4]
+	
+	call XYtoAdd2DotsWithNeg
 	
 	pop dx
 	pop di
