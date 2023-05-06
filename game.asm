@@ -58,7 +58,11 @@ ZombieHP = 100;Zombie HP
 
 ZMBSPEED = 0ch;Zombie Speed
 
+ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
+
 ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
+
+ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
 MaxBoardHeight = 0c80h ;With fixed decimal point
@@ -109,7 +113,7 @@ DATASEG
 	KShootCoolDown db 0 ;counter to make shooting go on "cooldown"
 	KCanMove db 0 ;bool to represent if the knight can use a shot
 	
-	KnightHP db PlayerHP
+	KnightHP dw PlayerHP
 	
 	
 	KnightDefultFileName db KnightDefultFName, 0;File name of the defult Knight picture file
@@ -291,6 +295,8 @@ DATASEG
 	Zombie1WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
 	ZMB1Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
 	ZMB1CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
+	ZMB1CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
+	ZMB1AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
 ; --------------------------
 
 CODESEG
@@ -307,6 +313,10 @@ start:
 	push bx
 	call ActivateZmbRnd
 GameLoop:
+	cmp [word KnightHP], 0
+	jnz @@NotDead
+	mov [byte GameOn], 1
+@@NotDead:
 	cmp [byte GameOn], 0
 	jnz endOfMainLoop
 	call UpdateShootCoolDown
@@ -332,6 +342,8 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+
+
 
 ;Description: Draws Zombie
 ;Input: through stack 1.offset zombie
@@ -523,8 +535,64 @@ proc UpdateZombie
 	
 @@BehaviorOK:
 	
+	
+
 	push bx
 	call MoveZombie
+	
+;Update Melee Attack CoolDown
+	cmp [byte bx + 14], 0
+	jz @@NotOnCoolDown
+	
+	inc [word bx + 15]
+	
+	cmp [word bx + 15], ZMBMeleeAttackCoolDown
+	jnz @@StillOnCoolDown
+	mov [byte bx + 14], 0
+	mov [word bx + 15], 0
+@@StillOnCoolDown:
+	
+@@NotOnCoolDown:
+
+	sub sp, 2;Check Colision
+	push [word bx + 1]
+	push [word bx + 3]
+	push ZombiLength
+	push ZombiHeight
+	push [XPlayer]
+	push [YPlayer]
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	call CheckCollision
+	
+	
+	
+
+	pop dx
+	cmp dx, 1
+	jz @@NoCollision;No Colision
+	cmp [byte bx + 14], 1
+	jz @@NoDealDamage;Zombie can't attack
+	cmp [byte KAbleToBeHit], 1
+	jz @@NoDealDamage
+	
+	
+	
+;Zombi attack Knight
+	sub [word KnightHP], ZombieMeleeAttackDamage
+	jnc @@NotDead	
+	mov [word KnightHP], 0
+@@NotDead:
+	
+	;call DisplayKHP
+	mov [byte bx + 14], 1
+	mov [word bx + 15], 0
+	
+@@NoDealDamage:
+	push bx
+	call ZMBMoveBack
+@@NoCollision:
+	
 	
 	cmp [byte bx + 5], 0;Choosing what picture
 	jg @@ZombieGoingRight
@@ -543,6 +611,28 @@ proc UpdateZombie
 	pop bp
 	ret 2
 endp UpdateZombie
+
+;Description: Makes Zombie go one step back
+;Input: Through stack: 1. offset Zombie
+proc ZMBMoveBack
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	neg [word bx + 5]
+	neg [word bx + 7]
+	push bx
+	call MoveZombie
+	
+	neg [word bx + 5]
+	neg [word bx + 7]
+	
+	popa
+	pop bp
+	ret 2
+endp ZMBMoveBack
 
 ;Description: Moves a Zombie
 ;Input: Through stack: 1.offset Zombie
