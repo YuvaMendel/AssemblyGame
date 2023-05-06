@@ -22,8 +22,9 @@ KnightDefultFName equ "KnightDe.bmp";Name for file with defult frame
 KnightWalk1FName equ "KWalk1.bmp";Name for file with walk frame num 1
 KnightWalk2FName equ "KWalk2.bmp";Name for file with walk frame num 2
 EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
-KNIGHTLENGTHTRAVEL = 13h;With fixed Decimal point
+KNIGHTLENGTHTRAVEL = 1dh;With fixed Decimal point
 KShootCycleCoolDown = 7;Const that holds the number of cycels the player has cooldown on shooting
+PlayerHP = 100;Defult Hp
 ;
 
 KeyboardInterruptPosition = 9 * 4
@@ -32,9 +33,9 @@ KeyboardInterruptPosition = 9 * 4
 ;Bullet Class attributes
 BULLETLENGTH = 50h;Fixed decimal point
 BULLETHEIGHT = 50h;shot is a cube
-BulletSpeed = 027h; speed of bullet vector
+BulletSpeed = 035h; speed of bullet vector
 BulletArrayLength = 16
-BulletDamage = 100
+BulletDamage = 30
 
 
 ;Zombi class Const
@@ -49,11 +50,13 @@ ZombieWalkLeft2FName equ "ZMBWL2.bmp"
 
 EraseZombieFName equ "EraseZMB.bmp"
 
+ZombieAnimationSpeed = 8;the speed the frames switch
+
 NumberOfZombies = 1
 
 ZombieHP = 100;Zombie HP
 
-ZMBSPEED = 9h;Zombie Speed
+ZMBSPEED = 0ch;Zombie Speed
 
 ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
 ;Board Sizes
@@ -106,6 +109,7 @@ DATASEG
 	KShootCoolDown db 0 ;counter to make shooting go on "cooldown"
 	KCanMove db 0 ;bool to represent if the knight can use a shot
 	
+	KnightHP db PlayerHP
 	
 	
 	KnightDefultFileName db KnightDefultFName, 0;File name of the defult Knight picture file
@@ -281,8 +285,8 @@ DATASEG
 	Zombie1Active db 1;bool to represent if the zombie is alive/active; offset + 0
 	Zombie1X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
 	Zombie1Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
-	Zombie1XToAdd dw 0FFFbh;Variable to represent the X that will be added each time; offset + 5
-	Zombie1YToAdd dw 05h;Variable to represent the Y that will be added each time; offset + 7
+	Zombie1XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
+	Zombie1YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
 	Zombie1HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
 	Zombie1WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
 	ZMB1Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
@@ -341,8 +345,8 @@ proc DrawZombie
 	cmp [byte bx], 0
 	jnz @@endproc
 	
-	cmp [byte bx + 10], 0
-	jnz @@NotFirstFrame
+	cmp [byte bx + 10], ZombieAnimationSpeed
+	ja @@NotFirstFrame
 	cmp [byte bx + 11], 0
 	jnz @@LeftFrame1
 	;RightFrame1
@@ -366,7 +370,7 @@ proc DrawZombie
 
 	inc [byte bx + 10];inc for next time this zombie is drawn
 	
-	cmp [byte bx + 10], 2;if the counter is above 1(there are 2 pictures)
+	cmp [byte bx + 10], ZombieAnimationSpeed * 2;if the counter is above 1(there are 2 pictures)
 	jna @@FrameNumberOk
 	
 	mov [byte bx + 10], 0
@@ -1158,7 +1162,7 @@ endp ActivateBullet
 ;Description: Delays game
 proc LoopDelay
 	push cx
-	mov cx ,20
+	mov cx ,30
 @@Self1:
 	push cx
 	mov cx,3000   
