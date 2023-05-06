@@ -65,7 +65,12 @@ ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
-MaxBoardHeight = 0c80h ;With fixed decimal point
+MaxBoardHeight = 0bf0h ;With fixed decimal point
+
+;
+MainMenuFName equ "Menu.bmp"
+
+GameOverFName equ "GameOver.bmp"
 
 DATASEG
 ; --------------------------
@@ -95,6 +100,13 @@ DATASEG
 ;-------------
 
 ;My Variabls
+;main menu
+	MainMenuBMP db MainMenuFName, 0
+	
+	GameOverBMP db GameOverFName, 0
+	
+;Display Hp
+	EraseScoreText db '    $'
 
 ;Knight Variables
 	XPlayer dw PLAYERSTARTINGXPOS;Variable to represent the X position of the Knight (with fixed decimal point)
@@ -305,13 +317,18 @@ start:
 	mov ds, ax
 ; --------------------------
 	call SetGraphic
+	call DisplayMainMenu
+	call WaitForEnter
+	call ClearScreen
+	
 	call SetAsyncKeyboard
 	call DrawKnight
 	call SetAsyncMouse
 	call ShowCurser
-	mov bx,  offset Zombie1Active
-	push bx
-	call ActivateZmbRnd
+	; mov bx,  offset Zombie1Active
+	; push bx
+	; call ActivateZmbRnd
+	call DisplayKHP
 GameLoop:
 	cmp [word KnightHP], 0
 	jnz @@NotDead
@@ -323,10 +340,15 @@ GameLoop:
 	call CheckKeys
 	call Update_activated_Bullets
 	call CheckandUpdateallZombies
+	;ActivateZombiesRandomly
 	call LoopDelay
 	jmp GameLoop
 endOfMainLoop:
 	call RestoreKeyboardInt
+	call DisplayGameOver
+	call WaitForEnter
+	call HideCurser
+	call ClearScreen
 ; --------------------------
 
 exit:
@@ -343,7 +365,91 @@ exit:
 ;----------------
 ;My Procedures
 
+;Description: Displays Main Menu Bmp on screen
+proc DisplayMainMenu
+	pusha
+	;DX = offset FileName, BmpLeft = X position on screen(0 - 319), BmpTop = Y position on screen(0 - 200), BmpColSize = Length ,BmpRowSize = Hight
+	mov [word BmpTop], 0
+	mov [word BmpLeft], 0
+	mov [word BmpColSize], 320
+	mov [word BmpRowSize], 200
+	mov dx, offset MainMenuBMP
+	call OpenShowBmp
+	popa
+	ret
+endp DisplayMainMenu
 
+;Description: Displays The game Over Screen
+proc DisplayGameOver
+	pusha
+	
+	mov [word BmpTop], 0
+	mov [word BmpLeft], 0
+	mov [word BmpColSize], 320
+	mov [word BmpRowSize], 200
+	mov dx, offset GameOverBMP
+	call OpenShowBmp
+	
+	popa
+	ret
+endp DisplayGameOver
+
+;Description: This procedure waits for enter key (works with defult interupt
+proc WaitForEnter
+	pusha
+	
+@@WaitForEnter:
+	mov ah, 0
+	int 16h
+	
+	cmp ah, 01ch
+	jz @@EnterWasEntered
+	jmp @@WaitForEnter
+	
+@@EnterWasEntered:
+	
+	
+	popa
+	ret
+endp WaitForEnter
+
+;Description: Clears Screen
+proc ClearScreen
+	pusha
+	
+	mov ax, 3h
+	int 10h
+	
+	call SetGraphic
+	
+	popa
+	ret
+endp ClearScreen
+
+;Description: Displays Knight HP in the bottom left of the screen
+proc DisplayKHP
+	pusha
+	mov ah, 2
+	mov bh, 0
+	mov dh, 24 ; line number
+	mov dl, 0; column number
+	int 10h
+	
+	mov ah, 9
+	mov dx, offset EraseScoreText
+	int 21h
+	
+	mov ah, 2
+	mov bh, 0
+	mov dh, 24 ; line number
+	mov dl, 0; column number
+	int 10h
+	
+	mov ax, [word KnightHP]
+	call printAxDec
+	popa
+	ret
+endp DisplayKHP
 
 ;Description: Draws Zombie
 ;Input: through stack 1.offset zombie
@@ -584,7 +690,7 @@ proc UpdateZombie
 	mov [word KnightHP], 0
 @@NotDead:
 	
-	;call DisplayKHP
+	call DisplayKHP
 	mov [byte bx + 14], 1
 	mov [word bx + 15], 0
 	
