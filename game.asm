@@ -53,6 +53,8 @@ NumberOfZombies = 1
 
 ZombieHP = 100;Zombie HP
 
+ZMBSPEED = 18h;Zombie Speed
+
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
 MaxBoardHeight = 0c80h ;With fixed decimal point
@@ -282,8 +284,8 @@ DATASEG
 	Zombie1YToAdd dw 05h;Variable to represent the Y that will be added each time; offset + 7
 	Zombie1HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
 	Zombie1WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
-	Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
-
+	ZMB1Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
+	ZMB1CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
 ; --------------------------
 
 CODESEG
@@ -399,6 +401,36 @@ proc DrawZombie
 	pop bp
 	ret 2
 endp DrawZombie
+
+;Description: This procedure sets zombie x to add and y to add
+;Input: Through stack: 1. Offset Zombie
+proc SetZombieBehavior
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov bx, [bp + 4]
+	
+	sub sp, 4
+	
+	push [word bx + 1]
+	push [word bx + 3]
+	
+	
+	push [word XPlayer]
+	push [word YPlayer]
+	
+	push ZMBSPEED
+	
+	call XYtoAdd2Dots
+	
+	pop [word bx + 5]
+	pop [word bx + 7]
+	
+	popa
+	pop bp
+	ret 2
+endp SetZombieBehavior
 
 ;Description: Erase A Zombie from screen
 ;Input: Through Stack 1.Zombie Offset
@@ -610,6 +642,8 @@ proc ActivateZmbRnd
 
 	mov [byte bx + 9], ZombieHP;Restore hp
 	
+	push bx
+	call SetZombieBehavior
 	
 	
 	popa
@@ -1854,7 +1888,103 @@ proc XYtoAdd2Dots
 	pop bp
 	ret 10
 endp XYtoAdd2Dots
+;Description; this procedure activates XYtoAdd2Dots and includes the case that the X or Y target are smaller
+;Input: Through stack: 1. Make room in stack for Output (sub sp, 4)(x- bp + 14 y - bp + 16) 2.XStart(bp + 12) 3.YStart(bp + 10) 4.XTarget(bp + 8) 5.YTarget(bp + 6) 6.Speed (bp + 4)
+;Output: Through stack: 1. XToAdd 2.YToAdd
+;Requirements; make room in stack before (sub sp, 4)
+proc XYtoAdd2DotsWithNeg
+	push bp
+	mov bp, sp
+	pusha
+	
+	mov dx, [bp + 12];dx -> X start
+	
+	mov di, [bp + 10];di -> Y start
+	
+	mov cx, [bp + 8];cx -> X Target
+	
+	mov si, [bp + 6];si -> Y Target
+	
+	cmp di, si
+	ja @@TargetIsAbove
+;TargetIsBleow
+	cmp cx, dx
+	ja @@TargetIsRight1
+;Target Is Left Below
+	sub sp, 4
+	push cx
+	push di
+	push dx
+	push si
+	push [word bp + 4]
+	
+	call XYtoAdd2Dots
+	
+	pop dx
+	neg dx
+	pop di
+	
+	jmp @@XYAreSet
+	
+@@TargetIsRight1:
+;Target Is Right Below
+	sub sp, 4
+	push dx
+	push di
+	push cx
+	push si
+	push [word bp + 4]
+	
+	call XYtoAdd2Dots
+	
+	pop dx
+	pop di
 
+	jmp @@XYAreSet
+@@TargetIsAbove:
+	cmp cx, dx
+	ja @@TargetIsRight2
+;Target Is Left Above
+	sub sp, 4
+	push cx
+	push si
+	push dx
+	push di
+	push [word bp + 4]
+	
+	call XYtoAdd2Dots
+	
+	pop dx
+	neg dx
+	pop di
+	neg di
+	
+	jmp @@XYAreSet
+@@TargetIsRight2:
+;Target Is Right Above
+	sub sp, 4
+	push dx
+	push si
+	push cx
+	push di
+	push [word bp + 4]
+	
+	pop dx
+	pop di
+	neg di
+	
+	
+	jmp @@XYAreSet
+@@XYAreSet:
+
+	mov [bp + 14], dx
+	
+	mov [bp + 16], di
+	
+	popa
+	pop bp
+	ret 10
+endp XYtoAdd2DotsWithNeg
 
 
 ;----------------
