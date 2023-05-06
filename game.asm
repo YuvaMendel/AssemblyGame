@@ -64,7 +64,7 @@ ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
 
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 
-ZombieSpawnRate = 10;the rate of a new Zombie to spawn
+ZombieSpawnRate = 30;the rate of a new Zombie to spawn
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
 MaxBoardHeight = 0bf0h ;With fixed decimal point
@@ -411,7 +411,7 @@ proc ActivateZombiesRandomly
 	pusha
 	mov bx, 1
 	mov dx, ZombieSpawnRate
-	call RandomByCs
+	call RandomByCsWord
 	cmp ax, 1
 	jnz @@DoNotActivate
 	call FindAndActivate
