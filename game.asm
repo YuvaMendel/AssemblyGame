@@ -52,7 +52,7 @@ EraseZombieFName equ "EraseZMB.bmp"
 
 ZombieAnimationSpeed = 8;the speed the frames switch
 
-NumberOfZombies = 1
+NumberOfZombies = 4
 
 ZombieHP = 100;Zombie HP
 
@@ -63,6 +63,8 @@ ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
 ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
 
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
+
+ZombieSpawnRate = 10;the rate of a new Zombie to spawn
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
 MaxBoardHeight = 0bf0h ;With fixed decimal point
@@ -309,6 +311,45 @@ DATASEG
 	ZMB1CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
 	ZMB1CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
 	ZMB1AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+
+;Zombi2
+	Zombie2Active db 1;bool to represent if the zombie is alive/active; offset + 0
+	Zombie2X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
+	Zombie2Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
+	Zombie2XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
+	Zombie2YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
+	Zombie2HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
+	Zombie2WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
+	ZMB2Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
+	ZMB2CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
+	ZMB2CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
+	ZMB2AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+	
+;Zombi3
+	Zombie3Active db 1;bool to represent if the zombie is alive/active; offset + 0
+	Zombie3X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
+	Zombie3Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
+	Zombie3XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
+	Zombie3YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
+	Zombie3HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
+	Zombie3WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
+	ZMB3Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
+	ZMB3CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
+	ZMB3CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
+	ZMB3AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+
+;Zombi2
+	Zombie4Active db 1;bool to represent if the zombie is alive/active; offset + 0
+	Zombie4X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
+	Zombie4Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
+	Zombie4XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
+	Zombie4YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
+	Zombie4HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
+	Zombie4WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
+	ZMB4Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
+	ZMB4CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
+	ZMB4CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
+	ZMB4AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
 ; --------------------------
 
 CODESEG
@@ -340,7 +381,7 @@ GameLoop:
 	call CheckKeys
 	call Update_activated_Bullets
 	call CheckandUpdateallZombies
-	;ActivateZombiesRandomly
+	call ActivateZombiesRandomly
 	call LoopDelay
 	jmp GameLoop
 endOfMainLoop:
@@ -364,6 +405,44 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+
+;Description; This procedure spawns Zombies Randomly
+proc ActivateZombiesRandomly
+	pusha
+	mov bx, 1
+	mov dx, ZombieSpawnRate
+	call RandomByCs
+	cmp ax, 1
+	jnz @@DoNotActivate
+	call FindAndActivate
+@@DoNotActivate:
+	
+	
+	popa
+	ret
+endp ActivateZombiesRandomly
+
+;Description: This procedure finds a free zombie and activates it
+proc FindAndActivate
+	pusha
+	
+	mov cx, NumberOfZombies
+	xor di, di
+@@FindNext:
+	mov bx, [ZombieOffsetArray + di]
+	cmp [byte bx], 0
+	jz @@AlreadyActive
+	push bx
+	call ActivateZmbRnd
+	jmp @@Found
+@@AlreadyActive:
+	add di, 2
+	loop @@FindNext
+@@Found:
+	
+	popa
+	ret
+endp FindAndActivate
 
 ;Description: Displays Main Menu Bmp on screen
 proc DisplayMainMenu
