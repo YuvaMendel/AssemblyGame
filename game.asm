@@ -109,6 +109,7 @@ DATASEG
 	
 ;Display Hp
 	EraseScoreText db '    $'
+	FinalScoreText db 'Your final score was: $'
 
 ;Knight Variables
 	XPlayer dw PLAYERSTARTINGXPOS;Variable to represent the X position of the Knight (with fixed decimal point)
@@ -135,6 +136,9 @@ DATASEG
 	KnightWalk2FileName db KnightWalk2FName, 0
 	FrameNumber db 0;Variable to represent what frame of aaaaaasthe walk the knight is in
 	KnightEraseFileName db EraseKnightFName, 0
+	
+	
+	PlayerScore dw 0
 
 ;Async Keyboard Variables
 	oldintruptoffset dw ?
@@ -369,6 +373,7 @@ start:
 	call ShowCurser
 	
 	call DisplayKHP
+	Call ShowScore
 GameLoop:
 	cmp [word KnightHP], 0
 	jnz @@NotDead
@@ -387,6 +392,7 @@ endOfMainLoop:
 	call RestoreKeyboardInt
 	call HideCurser
 	call DisplayGameOver
+	call DisplayFinalScore
 	call WaitForEnter
 	call ClearScreen
 ; --------------------------
@@ -435,6 +441,55 @@ proc ActivateZombiesRandomly
 	popa
 	ret
 endp ActivateZombiesRandomly
+
+;Description: this procedure shows the player's score in the bottom right corner of the screen
+proc ShowScore
+	pusha
+	mov ah, 2
+	mov bh, 0
+	mov dh, 24 ; line number
+	mov dl, 34; column number
+	int 10h
+	
+	mov ah, 9
+	mov dx, offset EraseScoreText
+	int 21h
+	
+	mov ah, 2
+	mov bh, 0
+	mov dh, 24 ; line number
+	mov dl, 34; column number
+	int 10h
+	
+	mov ax, [word PlayerScore]
+	call printAxDec
+	popa
+	
+	ret
+endp ShowScore
+
+
+;Description: This procedure displys the score in the middle of the screen
+proc DisplayFinalScore
+
+	pusha
+	mov ah, 2
+	mov bh, 0
+	mov dh, 17 ; line number
+	mov dl, 7; column number
+	int 10h
+	
+	mov ah, 9
+	mov dx, offset FinalScoreText
+	int 21h
+	
+
+	
+	mov ax, [word PlayerScore]
+	call printAxDec
+	popa
+	ret
+endp DisplayFinalScore
 
 ;Description: This procedure finds a free zombie and activates it
 proc FindAndActivate
@@ -720,6 +775,8 @@ proc UpdateZombie
 	mov [byte bx], 1;Update to "dead"
 	push bx
 	call UndrawZombie
+	inc [word PlayerScore]
+	Call ShowScore
 	jmp @@endproc
 @@Alive:
 	push bx
