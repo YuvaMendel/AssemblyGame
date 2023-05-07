@@ -133,7 +133,7 @@ DATASEG
 	KnightDefultFileName db KnightDefultFName, 0;File name of the defult Knight picture file
 	KnightWalk1FileName db KnightWalk1FName, 0
 	KnightWalk2FileName db KnightWalk2FName, 0
-	FrameNumber db 0;Variable to represent what frame of the walk the knight is in
+	FrameNumber db 0;Variable to represent what frame of aaaaaasthe walk the knight is in
 	KnightEraseFileName db EraseKnightFName, 0
 
 ;Async Keyboard Variables
@@ -385,9 +385,9 @@ GameLoop:
 	jmp GameLoop
 endOfMainLoop:
 	call RestoreKeyboardInt
+	call HideCurser
 	call DisplayGameOver
 	call WaitForEnter
-	call HideCurser
 	call ClearScreen
 ; --------------------------
 
@@ -1022,10 +1022,12 @@ proc MouseHandle far
 	
 	mov ax, [XPlayer]
 	add ax, PLAYERLENGTH / 2
+	sub ax, 20h
 	push ax
 	
 	mov ax, [YPlayer]
 	add ax, PLAYERHIGHT / 2
+	sub ax, 20h
 	push ax
 	
 	push cx
@@ -1433,8 +1435,8 @@ proc ActivateBullet
 	call MoveBullet
 	push bx
 	call MoveBullet
-	push bx
-	call MoveBullet
+	
+	
 	
 	pop si
 	pop di
