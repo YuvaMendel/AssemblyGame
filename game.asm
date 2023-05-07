@@ -50,21 +50,21 @@ ZombieWalkLeft2FName equ "ZMBWL2.bmp"
 
 EraseZombieFName equ "EraseZMB.bmp"
 
-ZombieAnimationSpeed = 8;the speed the frames switch
+ZombieAnimationSpeed = 6;the speed the frames switch
 
 NumberOfZombies = 4
 
-ZombieHP = 100;Zombie HP
+ZombieHP = 60;Zombie HP
 
-ZMBSPEED = 0ch;Zombie Speed
+ZMBSPEED = 22h;Zombie Speed
 
 ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
 
-ZMBBehaviorRefreshRate =  10; the are the zombie refreshes its behavior
+ZMBBehaviorRefreshRate =  15; the are the zombie refreshes its behavior
 
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 
-ZombieSpawnRate = 30;the rate of a new Zombie to spawn
+ZombieSpawnRate = 50;the rate of a new Zombie to spawn
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
 MaxBoardHeight = 0bf0h ;With fixed decimal point
@@ -157,11 +157,11 @@ DATASEG
 	
 	
 	
-	BulletDrawArray db 2,2,2,2,2
-					db 2,2,2,2,2
-					db 2,2,2,2,2
-					db 2,2,2,2,2
-					db 2,2,2,2,2
+	BulletDrawArray db 1,0,3,0,1
+					db 0,3,3,3,0
+					db 0,3,3,3,0
+					db 0,3,3,3,0
+					db 1,0,3,0,1
 	BulletEraseArray db 25 dup (0)
 
 ;Bullet Array
@@ -362,13 +362,12 @@ start:
 	call WaitForEnter
 	call ClearScreen
 	
+	call ResertZombies
 	call SetAsyncKeyboard
 	call DrawKnight
 	call SetAsyncMouse
 	call ShowCurser
-	; mov bx,  offset Zombie1Active
-	; push bx
-	; call ActivateZmbRnd
+	
 	call DisplayKHP
 GameLoop:
 	cmp [word KnightHP], 0
@@ -405,8 +404,23 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+;Description: This procedure resets all zombies
+proc ResertZombies
+	pusha 
+	mov cx, NumberOfZombies
+	xor di, di
+@@NextZombie:
+	mov bx, [ZombieOffsetArray + di]
+	mov [byte bx], 1
+	
+	add di, 2
+	loop @@NextZombie
+	
+	popa
+	ret
+endp ResertZombies
 
-;Description; This procedure spawns Zombies Randomly
+;Description: This procedure spawns Zombies Randomly
 proc ActivateZombiesRandomly
 	pusha
 	mov bx, 1
@@ -698,8 +712,8 @@ proc UpdateZombie
 	pusha
 	
 	mov bx, [bp + 4]
-	cmp [byte bx], 0
-	jnz @@endproc
+	cmp [byte bx], 1
+	jz @@endproc
 	
 	cmp [byte bx + 9], 0;if Zombie Has HP
 	jnz @@Alive;You have to make sure that the hp is 0 when enemy is killed not lower (signed)
