@@ -50,7 +50,7 @@ ZombieWalkLeft2FName equ "ZMBWL2.bmp"
 
 EraseZombieFName equ "EraseZMB.bmp"
 
-ZombieAnimationSpeed = 6;the speed the frames switch
+ZombieAnimationSpeed = 9;the speed the frames switch
 
 NumberOfZombies = 4
 
@@ -109,7 +109,7 @@ DATASEG
 	
 ;Display Hp
 	EraseScoreText db '    $'
-	FinalScoreText db 'Your final score was: $'
+	FinalScoreText db 'Your final score is: $'
 
 ;Knight Variables
 	XPlayer dw PLAYERSTARTINGXPOS;Variable to represent the X position of the Knight (with fixed decimal point)
@@ -294,7 +294,7 @@ DATASEG
 ;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
 	
 ;Zombi Offset Array
-	ZombieOffsetArray dw Zombie1Active
+	ZombieOffsetArray dw Zombie1Active, Zombie2Active, Zombie3Active, Zombie4Active
 	ZMBWL1FileName db ZombieWalkLeft1FName, 0
 	ZMBWL2FileName db ZombieWalkLeft2FName, 0
 	
@@ -342,7 +342,7 @@ DATASEG
 	ZMB3CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
 	ZMB3AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
 
-;Zombi2
+;Zombi4
 	Zombie4Active db 1;bool to represent if the zombie is alive/active; offset + 0
 	Zombie4X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
 	Zombie4Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
@@ -366,7 +366,6 @@ start:
 	call WaitForEnter
 	call ClearScreen
 	
-	call ResertZombies
 	call SetAsyncKeyboard
 	call DrawKnight
 	call SetAsyncMouse
@@ -410,21 +409,7 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
-;Description: This procedure resets all zombies
-proc ResertZombies
-	pusha 
-	mov cx, NumberOfZombies
-	xor di, di
-@@NextZombie:
-	mov bx, [ZombieOffsetArray + di]
-	mov [byte bx], 1
-	
-	add di, 2
-	loop @@NextZombie
-	
-	popa
-	ret
-endp ResertZombies
+
 
 ;Description: This procedure spawns Zombies Randomly
 proc ActivateZombiesRandomly
@@ -751,7 +736,7 @@ proc CheckandUpdateallZombies
 	xor di, di
 	
 @@loopUpdate:
-	push [ZombieOffsetArray + di]
+	push [word ZombieOffsetArray + di]
 	call UpdateZombie
 	add di, 2
 	loop @@loopUpdate
