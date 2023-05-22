@@ -25,6 +25,9 @@ EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
 KNIGHTLENGTHTRAVEL = 1dh;With fixed Decimal point
 KShootCycleCoolDown = 7;Const that holds the number of cycels the player has cooldown on shooting
 PlayerHP = 100;Defult Hp
+
+RollDuration = 5;Const to represent the amount of cycels the roll has
+PlayerRollSpeed = 00h;Speed of roll
 ;
 
 KeyboardInterruptPosition = 9 * 4
@@ -60,7 +63,7 @@ ZMBSPEED = 22h;Zombie Speed
 
 ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
 
-ZMBBehaviorRefreshRate =  15; the are the zombie refreshes its behavior
+ZMBBehaviorRefreshRate =  50; the are the zombie refreshes its behavior
 
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 
@@ -73,6 +76,8 @@ MaxBoardHeight = 0bf0h ;With fixed decimal point
 MainMenuFName equ "Menu.bmp"
 
 GameOverFName equ "GameOver.bmp"
+
+
 
 DATASEG
 ; --------------------------
@@ -90,6 +95,7 @@ DATASEG
 	Palette 	db 400h dup (0)
 	ErrorFile db 0
 	BmpFileErrorMsg    	db 'Error At Opening a Bmp File', 0dh, 0ah,'$'
+	PutBMPSegement dw 0A000h
 	
 	BmpLeft dw ?
 	BmpTop dw ?
@@ -122,11 +128,15 @@ DATASEG
 
 	;bool for condition of knight
 	KAbleToBeHit db 0 ;bool to represent if the knight can be hit
+	
+	KRolling db 1;bool to represent if the Knight is rolling
+	
+	KRollStage db ?;Variable to count the stageof rolling the knight is in 
 
-	KCanDodge db 0;bool to represent if the knight can dodge roll
+
 	KCanShoot db 0 ;bool to represent if the knight can use a shot
 	KShootCoolDown db 0 ;counter to make shooting go on "cooldown"
-	KCanMove db 0 ;bool to represent if the knight can use a shot
+	KCanMove db 0 ;bool to represent if the knight can move
 	
 	KnightHP dw PlayerHP
 	
@@ -139,6 +149,9 @@ DATASEG
 	
 	
 	PlayerScore dw 0
+	
+	KXToAddWhileRolling dw ?
+	KYTOAddWhileRolling dw ?
 
 ;Async Keyboard Variables
 	oldintruptoffset dw ?
@@ -146,12 +159,15 @@ DATASEG
 	key db ?
 	
 ;bools to represent is each key was pressed
-	WPressed db 1
-	SPressed db 1
-	APressed db 1
-	DPressed db 1
+	WPressed db 1;0 when pressed 1 when released
+	SPressed db 1;0 when pressed 1 when released
+	APressed db 1;0 when pressed 1 when released
+	DPressed db 1;0 when pressed 1 when released
+	
+	SpacePressed db 1;0 when pressed 1 when not pressing
 	
 	GameOn db 0
+	
 
 ;Bullet Class
 ;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
@@ -371,6 +387,8 @@ start:
 	call SetAsyncMouse
 	call ShowCurser
 	
+	call StartRoll
+	
 	call DisplayKHP
 	Call ShowScore
 GameLoop:
@@ -381,7 +399,11 @@ GameLoop:
 	cmp [byte GameOn], 0
 	jnz endOfMainLoop
 	call UpdateShootCoolDown
+	
+	
+	
 	call CheckKeys
+	call UpdateRoll
 	call Update_activated_Bullets
 	call CheckandUpdateallZombies
 	call ActivateZombiesRandomly
@@ -410,6 +432,124 @@ exit:
 ;----------------
 ;My Procedures
 
+;Description:Updates roll stage or roll cooldown
+proc UpdateRoll
+	pusha
+	cmp [byte KRolling], 0
+	jnz @@notRoll;not rolling
+	
+	mov [byte KNeedDraw], 0
+	
+	mov ax, [word XPlayer]
+	mov [word LastXPlayer], ax
+	
+	mov ax, [word YPlayer]
+	mov [word LastYPlayer], ax
+	
+	call AddXYPlayerRoll
+	
+	inc [byte KRollStage]
+	
+	cmp [byte KRollStage], RollDuration
+	jnz @@RollNotOver
+	;Roll is over
+	mov [byte KRolling], 1
+	mov [byte KAbleToBeHit], 0
+	mov [byte KCanMove], 0
+@@RollNotOver:
+@@notRoll:
+
+	popa
+	ret
+endp UpdateRoll
+
+;Description: add player x and y for roll
+proc AddXYPlayerRoll
+	pusha
+	
+	
+	mov ax, [XPlayer]
+	mov bx, [KXToAddWhileRolling]
+	
+	add ax, bx
+	
+	cmp ax, 0
+	jnle @@XOK1
+	mov ax, 0
+@@XOK1:
+
+	add ax, PLAYERLENGTH
+	cmp ax, MaxBoardLength
+	jnge @@XOK2
+	mov ax, MaxBoardLength - PLAYERLENGTH
+@@XOK2:
+
+	mov [word XPlayer], ax
+	
+	mov ax, [YPlayer]
+	mov bx, [KYToAddWhileRolling]
+	
+	add ax, bx
+	
+	cmp ax, 0
+	jnle @@YOK1
+	mov ax, 0
+@@YOK1:
+
+	add ax, PLAYERHIGHT
+	cmp ax, MaxBoardHeight
+	jnge @@YOK2
+	mov ax, MaxBoardHeight - PLAYERHIGHT
+@@YOK2:
+	
+	mov [word YPlayer], ax
+	
+	
+	popa
+	ret
+endp AddXYPlayerRoll
+
+
+;Description: Player starts Rolling
+proc StartRoll
+	pusha 
+	
+	cmp [byte KRolling], 0
+	jz @@endproc;Already rolling
+	
+	mov [byte KRollStage], 0;Rolling stage -> 0
+	
+	mov [byte KAbleToBeHit], 1;Knight Can't be hit
+	
+	mov [byte KCanMove], 1;Knight Can't Move
+	
+	mov [byte KRolling], 0
+	
+	
+
+
+	mov ax, 3
+	int 33h;get mouse x and y
+	
+	shl cx, 3;Fix x mouse to decimal point
+	shl dx, 4;Fix y mouse to decimal point
+	
+	sub sp, 4
+	push [word XPlayer]
+	push [word YPlayer]
+	push cx
+	push dx
+	push PlayerRollSpeed
+	call XYtoAdd2DotsWithNeg
+	
+	pop [word KXToAddWhileRolling]
+	pop [word KYTOAddWhileRolling]
+	
+	
+@@endproc:
+	popa
+	ret
+endp StartRoll
 
 ;Description: This procedure spawns Zombies Randomly
 proc ActivateZombiesRandomly
@@ -1043,7 +1183,9 @@ endp SetAsyncMouse
 
 proc MouseHandle far
 	pusha
-	cmp [byte KCanShoot], 0
+	cmp [byte KCanShoot], 0;Check if shot is on cooldown
+	jnz @@endproc
+	cmp [byte KRolling], 1;Check if knight is rolling
 	jnz @@endproc
 	mov cx, BulletArrayLength
 	xor di, di
@@ -1702,6 +1844,11 @@ proc Keyboard_handler near
 	mov [GameOn], 1
 @@NotESC:
 	
+	cmp [byte key], 39h
+	jnz @@NotSpace
+	mov [byte SpacePressed], 0
+@@NotSpace:
+	
 	
 @@endproc:
     pop di
@@ -1782,7 +1929,8 @@ proc CheckKeys
 	push cx
 	push di
 	
-	
+	cmp [KCanMove], 0;Check knight able to move
+	jnz @@CantMove
 	
 	mov ax, [XPlayer]
 	mov [LastXPlayer], ax
@@ -1828,7 +1976,7 @@ proc CheckKeys
 	
 	call KMoveUp
 @@WNotpressed:
-	
+@@CantMove:
 	cmp [KNeedDraw], 0
 	jnz @@NoDraw
 	call UndrawKnight
@@ -1836,6 +1984,9 @@ proc CheckKeys
 	
 @@NoDraw:
 	mov [KNeedDraw], 1
+	
+
+	
 	
 	pop di
 	pop cx
@@ -2049,6 +2200,7 @@ proc Sqrt
 	jnz @@Not1
 	mov ax, [bp + 4]
 	mov [bp + 8], ax
+	jmp @@EndOfProc
 @@Not1:
 	mov bx, [bp + 4]
 	mov si, [bp + 6]
@@ -2176,6 +2328,24 @@ proc XYtoAdd2Dots
 	pop cx
 	shl cx, 2
 	
+	cmp cx, 0
+	jnz @@DenominatorIsNotZero;If the Denominator is zero i just make a recursive call to a target with and x bigger by 1
+	;1.XStart [bp + 12]  2. YStart [bp + 10] 3. XTagrget[bp + 8] 4. YTarget[bp + 6] 5. speed[bp + 4]
+	sub sp, 4
+	push [word bp + 12]
+	push [word bp + 10]
+	mov ax, [bp + 8]
+	inc ax
+	push ax
+	push [word bp + 6]
+	push [word bp + 4]
+	call XYtoAdd2Dots
+	pop [word bp + 14]
+	pop [word bp + 16]
+	jmp @@EndProc
+	
+@@DenominatorIsNotZero:
+	
 	mov ax, [bp + 4]
 	mul bx
 	push cx
@@ -2225,6 +2395,7 @@ proc XYtoAdd2Dots
 	pop dx
 	add ax, dx
 	mov [bp + 16], ax
+@@EndProc:
 	
 	pop si
 	pop di
@@ -2316,7 +2487,7 @@ proc XYtoAdd2DotsWithNeg
 	push di
 	push [word bp + 4]
 	
-	call XYtoAdd2DotsWithNeg
+	call XYtoAdd2Dots
 	
 	pop dx
 	pop di
@@ -2334,6 +2505,7 @@ proc XYtoAdd2DotsWithNeg
 	pop bp
 	ret 10
 endp XYtoAdd2DotsWithNeg
+
 
 
 ;----------------
@@ -2636,7 +2808,7 @@ proc ShowBMP
 ; displaying the lines from bottom to top.
 	push cx
 	
-	mov ax, 0A000h
+	mov ax, [word PutBMPSegement]
 	mov es, ax
 	
 	mov cx,[BmpRowSize]
