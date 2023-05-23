@@ -21,13 +21,17 @@ PLAYERSTARTINGYPOS = 0640h;Player starting Point Y With FixedDecimal Point
 KnightDefultFName equ "KnightDe.bmp";Name for file with defult frame
 KnightWalk1FName equ "KWalk1.bmp";Name for file with walk frame num 1
 KnightWalk2FName equ "KWalk2.bmp";Name for file with walk frame num 2
+KRoll1FName equ "KRoll1.bmp";Name for file with roll frame num 1
+KRoll2FName equ "KRoll2.bmp";Name for file with roll frame num 2
+KRoll3FName equ "KRoll3.bmp";Name for file with roll frame num 3
 EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
 KNIGHTLENGTHTRAVEL = 1dh;With fixed Decimal point
 KShootCycleCoolDown = 7;Const that holds the number of cycels the player has cooldown on shooting
 PlayerHP = 100;Defult Hp
 
-RollDuration = 5;Const to represent the amount of cycels the roll has
-PlayerRollSpeed = 00h;Speed of roll
+RollDuration = 8;Const to represent the amount of cycels the roll has
+PlayerRollSpeed = 50h;Speed of roll
+RollCoolDown = 15;Const to represent the cycle cooldown on rolling
 ;
 
 KeyboardInterruptPosition = 9 * 4
@@ -137,6 +141,7 @@ DATASEG
 	KCanShoot db 0 ;bool to represent if the knight can use a shot
 	KShootCoolDown db 0 ;counter to make shooting go on "cooldown"
 	KCanMove db 0 ;bool to represent if the knight can move
+	KCanRoll db 0
 	
 	KnightHP dw PlayerHP
 	
@@ -144,6 +149,11 @@ DATASEG
 	KnightDefultFileName db KnightDefultFName, 0;File name of the defult Knight picture file
 	KnightWalk1FileName db KnightWalk1FName, 0
 	KnightWalk2FileName db KnightWalk2FName, 0
+	
+	KnightRoll1FileName db KRoll1FName, 0
+	KnightRoll2FileName db KRoll2FName, 0
+	KnightRoll3FileName db KRoll3FName, 0
+	
 	FrameNumber db 0;Variable to represent what frame of aaaaaasthe walk the knight is in
 	KnightEraseFileName db EraseKnightFName, 0
 	
@@ -152,6 +162,10 @@ DATASEG
 	
 	KXToAddWhileRolling dw ?
 	KYTOAddWhileRolling dw ?
+	
+	RollCoolDownCounter dw ?
+	
+
 
 ;Async Keyboard Variables
 	oldintruptoffset dw ?
@@ -387,7 +401,6 @@ start:
 	call SetAsyncMouse
 	call ShowCurser
 	
-	call StartRoll
 	
 	call DisplayKHP
 	Call ShowScore
@@ -400,10 +413,15 @@ GameLoop:
 	jnz endOfMainLoop
 	call UpdateShootCoolDown
 	
+	mov ax, [word XPlayer]
+	mov [word LastXPlayer], ax
 	
+	mov ax, [word YPlayer]
+	mov [word LastYPlayer], ax
 	
-	call CheckKeys
 	call UpdateRoll
+	call CheckKeys
+	
 	call Update_activated_Bullets
 	call CheckandUpdateallZombies
 	call ActivateZombiesRandomly
@@ -440,11 +458,11 @@ proc UpdateRoll
 	
 	mov [byte KNeedDraw], 0
 	
-	mov ax, [word XPlayer]
-	mov [word LastXPlayer], ax
+	; mov ax, [word XPlayer]
+	; mov [word LastXPlayer], ax
 	
-	mov ax, [word YPlayer]
-	mov [word LastYPlayer], ax
+	; mov ax, [word YPlayer]
+	; mov [word LastYPlayer], ax
 	
 	call AddXYPlayerRoll
 	
@@ -456,9 +474,20 @@ proc UpdateRoll
 	mov [byte KRolling], 1
 	mov [byte KAbleToBeHit], 0
 	mov [byte KCanMove], 0
+	mov [word RollCoolDownCounter], 0
+	mov [byte KCanRoll], 1
 @@RollNotOver:
+	jmp @@endproc
 @@notRoll:
-
+;Here I UpdateMy Roll CoolDown
+	cmp [byte KCanRoll], 0
+	jz @@endproc; roll not on cooldown
+	inc [word RollCoolDownCounter]
+	cmp [word RollCoolDownCounter], RollCoolDown
+	jnz @@endproc
+	;Roll finished cooldown
+	mov [byte KCanRoll], 0
+@@endproc:
 	popa
 	ret
 endp UpdateRoll
@@ -481,9 +510,11 @@ proc AddXYPlayerRoll
 	add ax, PLAYERLENGTH
 	cmp ax, MaxBoardLength
 	jnge @@XOK2
-	mov ax, MaxBoardLength - PLAYERLENGTH
+	mov ax, MaxBoardLength
 @@XOK2:
-
+	
+	sub ax, PLAYERLENGTH
+	
 	mov [word XPlayer], ax
 	
 	mov ax, [YPlayer]
@@ -499,8 +530,9 @@ proc AddXYPlayerRoll
 	add ax, PLAYERHIGHT
 	cmp ax, MaxBoardHeight
 	jnge @@YOK2
-	mov ax, MaxBoardHeight - PLAYERHIGHT
+	mov ax, MaxBoardHeight
 @@YOK2:
+	sub ax, PLAYERHIGHT
 	
 	mov [word YPlayer], ax
 	
@@ -511,11 +543,14 @@ endp AddXYPlayerRoll
 
 
 ;Description: Player starts Rolling
+;Fix this
 proc StartRoll
 	pusha 
 	
 	cmp [byte KRolling], 0
 	jz @@endproc;Already rolling
+	cmp [byte KCanRoll], 0
+	jnz @@endproc;Roll on cooldown
 	
 	mov [byte KRollStage], 0;Rolling stage -> 0
 	
@@ -525,14 +560,57 @@ proc StartRoll
 	
 	mov [byte KRolling], 0
 	
-	
 
 
-	mov ax, 3
-	int 33h;get mouse x and y
+
+	; mov ax, 3
+	; int 33h;get mouse x and y
 	
-	shl cx, 3;Fix x mouse to decimal point
-	shl dx, 4;Fix y mouse to decimal point
+	; shl cx, 3;Fix x mouse to decimal point
+	; shl dx, 4;Fix y mouse to decimal point
+	
+	mov cx, [XPlayer]
+	mov dx, [YPlayer]
+	
+	mov si, 1;bool to represent if there are keys pressed
+
+	cmp [byte WPressed], 0
+	jnz @@KnightNotGoingUp
+	sub dx, 10h
+	jnc @@InTheScreen1
+	xor dx, dx
+@@InTheScreen1:
+	mov si, 0
+@@KnightNotGoingUp:
+
+	cmp [byte SPressed], 0
+	jnz @@KnightNotGoingDown
+	add dx, 10h
+	mov si, 0
+@@KnightNotGoingDown:
+
+	cmp [byte APressed], 0
+	jnz @@KnightNotGoingLeft
+	sub cx, 10h
+	jnc @@InTheScreen2
+	xor cx, cx
+@@InTheScreen2:
+	mov si, 0
+@@KnightNotGoingLeft:
+
+	cmp [byte DPressed], 0
+	jnz @@KnightNotGoingRight
+	add cx, 10h
+	mov si, 0
+@@KnightNotGoingRight:
+
+	cmp si, 0;if no key was pressed the dash won't move player
+	jz @@KeyWasPressed
+	
+	mov [word KXToAddWhileRolling], 0
+	mov [word KYToAddWhileRolling], 0
+	jmp @@EndProc
+@@KeyWasPressed:
 	
 	sub sp, 4
 	push [word XPlayer]
@@ -585,9 +663,10 @@ proc ShowScore
 	mov dh, 24 ; line number
 	mov dl, 34; column number
 	int 10h
-	
+	call HideCurser
 	mov ax, [word PlayerScore]
 	call printAxDec
+	call ShowCurser
 	popa
 	
 	ret
@@ -718,8 +797,13 @@ proc DisplayKHP
 	mov dl, 0; column number
 	int 10h
 	
+	call HideCurser
+	
 	mov ax, [word KnightHP]
 	call printAxDec
+	
+	call ShowCurser
+	
 	popa
 	ret
 endp DisplayKHP
@@ -1781,8 +1865,6 @@ proc Keyboard_handler near
     push si
     push di
 
-    ; in al, 64h
-    ; test al, 01h
 
     ; Gets the pressed key and stores it in [key]
     in al, 60h         
@@ -1848,7 +1930,12 @@ proc Keyboard_handler near
 	jnz @@NotSpace
 	mov [byte SpacePressed], 0
 @@NotSpace:
+
+	cmp [byte key], 0b9h
+	jnz @@SpaceNotReleased
 	
+	mov [byte SpacePressed], 1
+@@SpaceNotReleased:
 	
 @@endproc:
     pop di
@@ -1932,12 +2019,17 @@ proc CheckKeys
 	cmp [KCanMove], 0;Check knight able to move
 	jnz @@CantMove
 	
-	mov ax, [XPlayer]
-	mov [LastXPlayer], ax
+	; mov ax, [XPlayer]
+	; mov [LastXPlayer], ax
 	
-	mov ax, [YPlayer]
-	mov [LastYPlayer], ax
+	; mov ax, [YPlayer]
+	; mov [LastYPlayer], ax
+	cmp [byte SpacePressed], 0
+	jnz @@SpaceNotPressed
 	
+	call StartRoll
+	
+@@SpaceNotPressed:
 	
 	cmp [APressed], 0
 	jnz @@ANotpressed
@@ -2003,16 +2095,42 @@ proc DrawKnight
 	
 	cmp [FrameNumber], 0
 	jnz @@NotFrame1
+	
+	cmp [byte KRolling], 0
+	jnz @@NotRolling1
+	mov dx, offset KnightRoll1FileName
+	jmp @@FrameNumberOk
+@@NotRolling1:	
 	mov dx, offset KnightDefultFileName
+	
+	
 @@NotFrame1:
 	
 	cmp [FrameNumber], 1
 	jnz @@NotFrame2
+	
+	
+	cmp [byte KRolling], 0
+	jnz @@NotRolling2
+	mov dx, offset KnightRoll2FileName
+	jmp @@FrameNumberOk
+@@NotRolling2:
+
+
 	mov dx, offset KnightWalk1FileName
 @@NotFrame2:
 
 	cmp [FrameNumber], 2
 	jnz @@NotFrame3
+	
+	
+	cmp [byte KRolling], 0
+	jnz @@NotRolling3
+	mov dx, offset KnightRoll3FileName
+	jmp @@FrameNumberOk
+@@NotRolling3:
+	
+	
 	mov dx, offset KnightWalk2FileName
 @@NotFrame3:
 
