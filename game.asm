@@ -26,7 +26,8 @@ KRoll2FName equ "KRoll2.bmp";Name for file with roll frame num 2
 KRoll3FName equ "KRoll3.bmp";Name for file with roll frame num 3
 EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
 KNIGHTLENGTHTRAVEL = 1dh;With fixed Decimal point
-KShootCycleCoolDown = 7;Const that holds the number of cycels the player has cooldown on shooting
+KShootCycleCoolDown = 3;Const that holds the number of cycels the player has cooldown on shooting
+KnightFrameChangeRate = 2;Const to represent the amount of cycles for each Knight frame change
 PlayerHP = 100;Defult Hp
 
 RollDuration = 8;Const to represent the amount of cycels the roll has
@@ -57,7 +58,7 @@ ZombieWalkLeft2FName equ "ZMBWL2.bmp"
 
 EraseZombieFName equ "EraseZMB.bmp"
 
-ZombieAnimationSpeed = 9;the speed the frames switch
+ZombieAnimationSpeed = 6;the speed the frames switch
 
 NumberOfZombies = 4
 
@@ -67,7 +68,7 @@ ZMBSPEED = 22h;Zombie Speed
 
 ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
 
-ZMBBehaviorRefreshRate =  50; the are the zombie refreshes its behavior
+ZMBBehaviorRefreshRate =  40; the are the zombie refreshes its behavior
 
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 
@@ -154,6 +155,7 @@ DATASEG
 	KnightRoll2FileName db KRoll2FName, 0
 	KnightRoll3FileName db KRoll3FName, 0
 	
+	KnightWalkFrameChangeCounter db 0
 	FrameNumber db 0;Variable to represent what frame of aaaaaasthe walk the knight is in
 	KnightEraseFileName db EraseKnightFName, 0
 	
@@ -384,6 +386,45 @@ DATASEG
 	ZMB4CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
 	ZMB4CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
 	ZMB4AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+;;;
+;;;
+;;;
+; Will and screen with first matrix and xor afterwards. 
+	MouseMask dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  
+			  
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 1111111001111111b
+			  dw 1111111001111111b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+			  dw 0000000110000000b
+
 ; --------------------------
 
 CODESEG
@@ -399,6 +440,7 @@ start:
 	call SetAsyncKeyboard
 	call DrawKnight
 	call SetAsyncMouse
+	call SetMouseShape
 	call ShowCurser
 	
 	
@@ -449,6 +491,23 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+
+;Description: Changes mouse shape
+proc SetMouseShape
+	pusha
+	
+	push ds
+	pop es
+	
+	mov dx, offset MouseMask
+	mov bx, 8
+	mov cx, 8
+	mov ax, 9
+	int 33h
+	
+	popa
+	ret
+endp SetMouseShape
 
 ;Description:Updates roll stage or roll cooldown
 proc UpdateRoll
@@ -573,6 +632,7 @@ proc StartRoll
 	mov dx, [YPlayer]
 	
 	mov si, 1;bool to represent if there are keys pressed
+	mov di, 1
 
 	cmp [byte WPressed], 0
 	jnz @@KnightNotGoingUp
@@ -580,13 +640,13 @@ proc StartRoll
 	jnc @@InTheScreen1
 	xor dx, dx
 @@InTheScreen1:
-	mov si, 0
+	xor di, 1
 @@KnightNotGoingUp:
 
 	cmp [byte SPressed], 0
 	jnz @@KnightNotGoingDown
 	add dx, 10h
-	mov si, 0
+	xor di, 1
 @@KnightNotGoingDown:
 
 	cmp [byte APressed], 0
@@ -595,16 +655,16 @@ proc StartRoll
 	jnc @@InTheScreen2
 	xor cx, cx
 @@InTheScreen2:
-	mov si, 0
+	xor si, 1
 @@KnightNotGoingLeft:
 
 	cmp [byte DPressed], 0
 	jnz @@KnightNotGoingRight
 	add cx, 10h
-	mov si, 0
+	xor si, 1
 @@KnightNotGoingRight:
 
-	cmp si, 0;if no key was pressed the dash won't move player
+	test si, di;if no key was pressed the dash won't move player
 	jz @@KeyWasPressed
 	
 	mov [word KXToAddWhileRolling], 0
@@ -1432,6 +1492,7 @@ proc MoveBullet
 	mov [byte bx], 1;bullet hit left wall
 	push bx
 	call UndrawBullet
+	call DrawKnight
 @@NotHitLeftWall:
 
 	mov cx, [word bx + 1]
@@ -1441,6 +1502,7 @@ proc MoveBullet
 	mov [byte bx], 1;bullet hit right wall
 	push bx
 	call UndrawBullet
+	call DrawKnight
 @@NotHitRightWall:
 
 	
@@ -1453,6 +1515,7 @@ proc MoveBullet
 	mov [byte bx], 1;bullet hit upper wall
 	push bx
 	call UndrawBullet
+	call DrawKnight
 @@NotHitUpperWall:
 	
 	mov cx, [word bx + 3]
@@ -1460,8 +1523,10 @@ proc MoveBullet
 	cmp cx, MaxBoardHeight
 	jnae @@NotHitLowerWall
 	mov [byte bx], 1;bullet hit lower wall
+	mov [word bx + 3], MaxBoardHeight - BULLETHEIGHT
 	push bx
 	call UndrawBullet
+	call DrawKnight
 @@NotHitLowerWall:
 
 
@@ -2089,9 +2154,9 @@ endp CheckKeys
 
 ;Description: Draws Knight
 ;Input: Input in the Knight variables
-;Output: On screem
+;Output: On screen
 proc DrawKnight
-	push dx
+	pusha
 	
 	cmp [FrameNumber], 0
 	jnz @@NotFrame1
@@ -2099,10 +2164,11 @@ proc DrawKnight
 	cmp [byte KRolling], 0
 	jnz @@NotRolling1
 	mov dx, offset KnightRoll1FileName
-	jmp @@FrameNumberOk
+	jmp @@PrintKnight
 @@NotRolling1:	
 	mov dx, offset KnightDefultFileName
 	
+	jmp @@FrameNumberOk
 	
 @@NotFrame1:
 	
@@ -2113,11 +2179,12 @@ proc DrawKnight
 	cmp [byte KRolling], 0
 	jnz @@NotRolling2
 	mov dx, offset KnightRoll2FileName
-	jmp @@FrameNumberOk
+	jmp @@PrintKnight
 @@NotRolling2:
 
 
 	mov dx, offset KnightWalk1FileName
+	jmp @@FrameNumberOk
 @@NotFrame2:
 
 	cmp [FrameNumber], 2
@@ -2127,21 +2194,27 @@ proc DrawKnight
 	cmp [byte KRolling], 0
 	jnz @@NotRolling3
 	mov dx, offset KnightRoll3FileName
-	jmp @@FrameNumberOk
+	jmp @@PrintKnight
 @@NotRolling3:
 	
 	
 	mov dx, offset KnightWalk2FileName
+	jmp @@FrameNumberOk
 @@NotFrame3:
+@@FrameNumberOk:
 
+	inc [byte KnightWalkFrameChangeCounter]
+	cmp [byte KnightWalkFrameChangeCounter], KnightFrameChangeRate
+	jnz @@PrintKnight
+	mov [byte KnightWalkFrameChangeCounter], 0
 	inc [FrameNumber];inc for next time this draws
 	
 	cmp [FrameNumber], 2;if the counter is above 2(there are 3 pictures)
-	jna @@FrameNumberOk
+	jna @@PrintKnight
 	
 	mov [FrameNumber], 0
 	
-@@FrameNumberOk:
+@@PrintKnight:
 
 	sub sp, 2
 	push [XPlayer]
@@ -2165,7 +2238,7 @@ proc DrawKnight
 	call HideCurser
 	call OpenShowBmp
 	call ShowCurser
-	pop dx
+	popa
 	ret
 endp DrawKnight
 
@@ -2959,6 +3032,10 @@ proc ShowBMP
 	shl di,8
 	add di,cx
 	add di,dx
+	
+	;;
+	sub di, 320
+	;;
 	 
 	; small Read one line
 	mov ah,3fh
