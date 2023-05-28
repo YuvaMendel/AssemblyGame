@@ -460,12 +460,16 @@ GameLoop:
 	
 	mov ax, [word YPlayer]
 	mov [word LastYPlayer], ax
+	call HideCurser
 	
+	call CheckandUpdateallZombies
+	call Update_activated_Bullets
 	call UpdateRoll
 	call CheckKeys
 	
-	call Update_activated_Bullets
-	call CheckandUpdateallZombies
+	call ShowCurser
+	
+	
 	call ActivateZombiesRandomly
 	call LoopDelay
 	jmp GameLoop
@@ -723,10 +727,10 @@ proc ShowScore
 	mov dh, 24 ; line number
 	mov dl, 34; column number
 	int 10h
-	call HideCurser
+	
 	mov ax, [word PlayerScore]
 	call printAxDec
-	call ShowCurser
+	
 	popa
 	
 	ret
@@ -857,12 +861,12 @@ proc DisplayKHP
 	mov dl, 0; column number
 	int 10h
 	
-	call HideCurser
+	
 	
 	mov ax, [word KnightHP]
 	call printAxDec
 	
-	call ShowCurser
+	
 	
 	popa
 	ret
@@ -932,9 +936,9 @@ proc DrawZombie
 	call RemoveFixedDecimalPoint
 	pop [BmpRowSize]
 	
-	call HideCurser
+	
 	call OpenShowBmp
-	call ShowCurser
+	
 	
 @@endproc:
 	popa
@@ -1003,9 +1007,9 @@ proc UndrawZombie
 	call RemoveFixedDecimalPoint
 	pop [BmpRowSize]
 	
-	call HideCurser
+	
 	call OpenShowBmp
-	call ShowCurser
+	
 	
 	popa
 	pop bp
@@ -1404,9 +1408,9 @@ proc DrawBullet
 	shr dx, 4
 	mov cx, BULLETHEIGHT
 	shr cx, 4
-	call HideCurser
+	
 	call putMatrixInScreen
-	call ShowCurser
+	
 	;1. DX = Line Length, CX = Amount of Lines, Variable matrix = Offset of the matrix you want to print, DI = Location to Print on screen(0 - 64,000)
 @@endproc:
 	popa
@@ -1433,9 +1437,9 @@ proc UndrawBullet
 	shr dx, 4
 	mov cx, BULLETHEIGHT
 	shr cx, 4
-	call HideCurser
+	
 	call putMatrixInScreen
-	call ShowCurser
+	
 	;1. DX = Line Length, CX = Amount of Lines, Variable matrix = Offset of the matrix you want to print, DI = Location to Print on screen(0 - 64,000)
 	popa
 	pop bp
@@ -1492,7 +1496,7 @@ proc MoveBullet
 	mov [byte bx], 1;bullet hit left wall
 	push bx
 	call UndrawBullet
-	call DrawKnight
+	mov [KNeedDraw], 0
 @@NotHitLeftWall:
 
 	mov cx, [word bx + 1]
@@ -1502,7 +1506,7 @@ proc MoveBullet
 	mov [byte bx], 1;bullet hit right wall
 	push bx
 	call UndrawBullet
-	call DrawKnight
+	mov [KNeedDraw], 0
 @@NotHitRightWall:
 
 	
@@ -1515,7 +1519,7 @@ proc MoveBullet
 	mov [byte bx], 1;bullet hit upper wall
 	push bx
 	call UndrawBullet
-	call DrawKnight
+	mov [KNeedDraw], 0
 @@NotHitUpperWall:
 	
 	mov cx, [word bx + 3]
@@ -1526,7 +1530,7 @@ proc MoveBullet
 	mov [word bx + 3], MaxBoardHeight - BULLETHEIGHT
 	push bx
 	call UndrawBullet
-	call DrawKnight
+	mov [KNeedDraw], 0
 @@NotHitLowerWall:
 
 
@@ -2235,9 +2239,9 @@ proc DrawKnight
 	push PLAYERHIGHT
 	call RemoveFixedDecimalPoint
 	pop [BmpRowSize]
-	call HideCurser
+	
 	call OpenShowBmp
-	call ShowCurser
+	
 	popa
 	ret
 endp DrawKnight
@@ -2305,9 +2309,9 @@ proc UndrawKnight
 	call RemoveFixedDecimalPoint
 	pop [BmpRowSize]
 	
-	call HideCurser
+	
 	call OpenShowBmp
-	call ShowCurser
+	
 	
 	pop dx
 	ret
