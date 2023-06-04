@@ -24,10 +24,10 @@ KnightWalk2FName equ "KWalk2.bmp";Name for file with walk frame num 2
 KRoll1FName equ "KRoll1.bmp";Name for file with roll frame num 1
 KRoll2FName equ "KRoll2.bmp";Name for file with roll frame num 2
 KRoll3FName equ "KRoll3.bmp";Name for file with roll frame num 3
-EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
-KNIGHTLENGTHTRAVEL = 1dh;With fixed Decimal point
+;EraseKnightFName equ "EraseK.bmp";Name for file to erase other frames
+KNIGHTLENGTHTRAVEL = 20h;With fixed Decimal point
 KShootCycleCoolDown = 3;Const that holds the number of cycels the player has cooldown on shooting
-KnightFrameChangeRate = 2;Const to represent the amount of cycles for each Knight frame change
+KnightFrameChangeRate = 3;Const to represent the amount of cycles for each Knight frame change
 PlayerHP = 100;Defult Hp
 
 RollDuration = 8;Const to represent the amount of cycels the roll has
@@ -56,11 +56,11 @@ ZombieWalkRight2FName equ "ZMBWR2.bmp"
 ZombieWalkLeft1FName equ "ZMBWL1.bmp"
 ZombieWalkLeft2FName equ "ZMBWL2.bmp"
 
-EraseZombieFName equ "EraseZMB.bmp"
+;EraseZombieFName equ "EraseZMB.bmp"
 
 ZombieAnimationSpeed = 6;the speed the frames switch
 
-NumberOfZombies = 4
+NumberOfZombies = 8
 
 ZombieHP = 60;Zombie HP
 
@@ -73,15 +73,22 @@ ZMBBehaviorRefreshRate =  40; the are the zombie refreshes its behavior
 ZMBMeleeAttackCoolDown = 30;Const to represent the amount of cycles the melee attack is on cooldown
 
 ZombieSpawnRate = 50;the rate of a new Zombie to spawn
+
 ;Board Sizes
 MaxBoardLength = 1400h ;With fixed decimal point
-MaxBoardHeight = 0bf0h ;With fixed decimal point
+MaxBoardHeight = 0b90h ;With fixed decimal point
+
+BackgroundBMPLength = 320
+BackgroundBMPHeight = 200
+
+BackgroundBMPFName equ "BackGRND.bmp"
 
 ;
 MainMenuFName equ "Menu.bmp"
 
 GameOverFName equ "GameOver.bmp"
 
+VideoSegment = 0a000h
 
 
 DATASEG
@@ -92,20 +99,28 @@ DATASEG
 ;Variable For putMatrixInScreen
 	matrix dw ?
 	
-;Variabls For BMP
+;Variables For BMP
 	OneBmpLine 	db 200 dup (?)  ; One Color line read buffer
     ScrLine 	db 320 dup (?)  ; One Color line read buffer
 	FileHandle	dw ?
 	Header 	    db 54 dup(0)
 	Palette 	db 400h dup (0)
 	ErrorFile db 0
-	BmpFileErrorMsg    	db 'Error At Opening a Bmp File', 0dh, 0ah,'$'
-	PutBMPSegement dw 0A000h
 	
 	BmpLeft dw ?
 	BmpTop dw ?
 	BmpColSize dw ?
 	BmpRowSize dw ?
+	
+	PutBMPSegement dw VideoSegment
+	
+;Variables For My Bmp
+	MyFileHandle dw ?
+	MyErrorFile db 0
+	MyHeader db 54 dup(0)
+	MyPalette db 400h dup (0)
+	MyScrLine 	db 320 dup (?)  ; One Color line read buffer
+
 	
 ;-------------
 ;-------------
@@ -117,6 +132,9 @@ DATASEG
 	MainMenuBMP db MainMenuFName, 0
 	
 	GameOverBMP db GameOverFName, 0
+	
+;Baackground
+	BackGroundBMPFileName db BackgroundBMPFName, 0
 	
 ;Display Hp
 	EraseScoreText db '    $'
@@ -148,16 +166,26 @@ DATASEG
 	
 	
 	KnightDefultFileName db KnightDefultFName, 0;File name of the defult Knight picture file
+	KnightDefultMatrix db 104 dup (0)
+	
 	KnightWalk1FileName db KnightWalk1FName, 0
+	KnightWalk1Matrix db 104 dup (0)
+	
 	KnightWalk2FileName db KnightWalk2FName, 0
+	KnightWalk2Matrix db 104 dup (0)
 	
 	KnightRoll1FileName db KRoll1FName, 0
+	KnightRoll1Matrix db 104 dup (0)
+	
 	KnightRoll2FileName db KRoll2FName, 0
+	KnightRoll2Matrix db 104 dup (0)
+	
 	KnightRoll3FileName db KRoll3FName, 0
+	KnightRoll3Matrix db 104 dup (0)
 	
 	KnightWalkFrameChangeCounter db 0
 	FrameNumber db 0;Variable to represent what frame of aaaaaasthe walk the knight is in
-	KnightEraseFileName db EraseKnightFName, 0
+	;KnightEraseFileName db EraseKnightFName, 0
 	
 	
 	PlayerScore dw 0
@@ -184,6 +212,12 @@ DATASEG
 	
 	GameOn db 0
 	
+;variables for high score
+	HighScoreFileName db "HS.txt", 0
+	HSFileHandle dw ?
+	HighScore dw ?
+	NewHighScoreTect db "You Broke the high score$"
+	
 
 ;Bullet Class
 ;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
@@ -193,15 +227,15 @@ DATASEG
 	
 	
 	
-	BulletDrawArray db 1,0,3,0,1
-					db 0,3,3,3,0
-					db 0,3,3,3,0
-					db 0,3,3,3,0
-					db 1,0,3,0,1
-	BulletEraseArray db 25 dup (0)
-
+	BulletDrawArray db 1,6fh,4,6fh,1
+					db 6fh,4,4,4,6fh
+					db 6fh,4,4,4,6fh
+					db 6fh,4,4,4,6fh
+					db 1,6fh,4,6fh,1
+	;BulletEraseArray db 25 dup (0)
+	ActiveBulletCounter db 0
 ;Bullet Array
-	BulletOffsetArray dw Bullet1Active, Bullet2Active, Bullet3Active, Bullet4Active, Bullet5Active, Bullet6Active, Bullet7Active, Bullet8Active, Bullet9Active, Bullet10Active, Bullet11Active, Bullet12Active, Bullet13Active, Bullet14Active, Bullet15Active, Bullet16Active
+	BulletOffsetArray dw Bullet1Active, Bullet2, Bullet3, Bullet4, Bullet5, Bullet6, Bullet7, Bullet8, Bullet9, Bullet10, Bullet11, Bullet12, Bullet13, Bullet14, Bullet15, Bullet16
 
 ;Bullet1
 	Bullet1Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
@@ -211,109 +245,49 @@ DATASEG
 	Bullet1YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
 	
 ;Bullet2
-	Bullet2Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet2X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet2Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet2XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet2YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet2 db 1, 8 dup(?)
 
 ;Bullet3
-	Bullet3Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet3X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet3Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet3XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet3YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet3 db 1, 8 dup(?)
 	
 ;Bullet4
-	Bullet4Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet4X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet4Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet4XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet4YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet4 db 1, 8 dup(?)
 	
 ;Bullet5
-	Bullet5Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet5X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet5Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet5XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet5YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet5 db 1, 8 dup(?)
 	
 ;Bullet6
-	Bullet6Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet6X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet6Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet6XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet6YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet6 db 1, 8 dup(?)
 	
 ;Bullet7
-	Bullet7Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet7X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet7Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet7XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet7YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet7 db 1, 8 dup(?)
 	
 ;Bullet8
-	Bullet8Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet8X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet8Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet8XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet8YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet8 db 1, 8 dup(?)
 
 ;Bullet9
-	Bullet9Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet9X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet9Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet9XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet9YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet9 db 1, 8 dup(?)
 	
 ;Bullet10
-	Bullet10Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet10X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet10Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet10XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet10YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet10 db 1, 8 dup(?)
 
 ;Bullet11
-	Bullet11Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet11X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet11Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet11XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet11YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet11 db 1, 8 dup(?)
 	
 ;Bullet12
-	Bullet12Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet12X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet12Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet12XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet12YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet12 db 1, 8 dup(?)
 	
 ;Bullet13
-	Bullet13Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet13X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet13Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet13XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet13YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet13 db 1, 8 dup(?)
 	
 ;Bullet14
-	Bullet14Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet14X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet14Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet14XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet14YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet14 db 1, 8 dup(?)
 	
 ;Bullet15
-	Bullet15Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet15X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet15Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet15XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet15YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet15 db 1, 8 dup(?)
 	
 ;Bullet16
-	Bullet16Active db 1;bool to represent if the bullet is "shot"(active); offset + 0
-	Bullet16X dw ? ;Variable to represent the X posotion of the bullet; offset + 1
-	Bullet16Y dw ? ;Variable to represent the Y posotion of the bullet; offset + 3
-	Bullet16XToAdd dw ?;Variable to represent the X added each time for the direction; offset + 5
-	Bullet16YToAdd dw ?;Variable to represent the Y added each time for the direction; offset + 7
+	Bullet16 db 1, 8 dup(?)
 
 	
 
@@ -326,14 +300,20 @@ DATASEG
 ;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
 	
 ;Zombi Offset Array
-	ZombieOffsetArray dw Zombie1Active, Zombie2Active, Zombie3Active, Zombie4Active
+	ZombieOffsetArray dw Zombie1Active, Zombie2Active, Zombie3Active, Zombie4Active, Zombie5, Zombie6, Zombie7, Zombie8
 	ZMBWL1FileName db ZombieWalkLeft1FName, 0
+	ZMBWL1Matrix db 120 dup (0)
+	
 	ZMBWL2FileName db ZombieWalkLeft2FName, 0
+	ZMBWL2Matrix db 120 dup (0)
 	
 	ZMBWR1FileName db ZombieWalkRight1FName, 0
-	ZMBWR2FileName db ZombieWalkRight2FName, 0
+	ZMBWR1Matrix db 120 dup (0)
 	
-	ZMBEraseFileName db EraseZombieFName, 0
+	ZMBWR2FileName db ZombieWalkRight2FName, 0
+	ZMBWR2Matrix db 120 dup (0)
+	
+	ActiveZombieCounter db 0
 	
 ;Zombi1
 	Zombie1Active db 1;bool to represent if the zombie is alive/active; offset + 0
@@ -386,6 +366,19 @@ DATASEG
 	ZMB4CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
 	ZMB4CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
 	ZMB4AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+	
+;Zombie5
+	Zombie5 db 1, 16 dup (0)
+	
+;Zombie6
+	Zombie6 db 1, 16 dup (0)
+	
+;Zombie7
+	Zombie7 db 1, 16 dup (0)
+	
+;Zombie6
+	Zombie8 db 1, 16 dup (0)
+	
 ;;;
 ;;;
 ;;;
@@ -436,7 +429,8 @@ start:
 	call DisplayMainMenu
 	call WaitForEnter
 	call ClearScreen
-	
+	call PrintBackground
+	call ConvertAllBMPToMatrix
 	call SetAsyncKeyboard
 	call DrawKnight
 	call SetAsyncMouse
@@ -455,28 +449,32 @@ GameLoop:
 	jnz endOfMainLoop
 	call UpdateShootCoolDown
 	
+	;save x and y for draw
 	mov ax, [word XPlayer]
 	mov [word LastXPlayer], ax
 	
 	mov ax, [word YPlayer]
 	mov [word LastYPlayer], ax
+	;save x and y for draw
 	call HideCurser
 	
 	call CheckandUpdateallZombies
 	call Update_activated_Bullets
 	call UpdateRoll
-	call CheckKeys
+	call CheckKeys;check keys flags and moves knight, draws knight aswell
 	
 	call ShowCurser
 	
 	
 	call ActivateZombiesRandomly
-	call LoopDelay
+	call LoopDelay;delay
 	jmp GameLoop
 endOfMainLoop:
 	call RestoreKeyboardInt
 	call HideCurser
+	
 	call DisplayGameOver
+	call CheckHighScore
 	call DisplayFinalScore
 	call WaitForEnter
 	call ClearScreen
@@ -495,6 +493,217 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+
+proc CheckHighScore
+	pusha
+	mov al, 0
+	mov ah, 3dh
+	mov dx, offset HighScoreFileName
+	int 21h
+	mov [word HSFileHandle], ax
+	
+	mov cx, 2
+	mov dx, offset HighScore
+	mov bx, [word HSFileHandle]
+	mov ah, 3fh
+	int 21h
+	
+	mov ah, 3eh
+	mov bx, [HSFileHandle]
+	int 21h
+	
+	mov ax, [PlayerScore]
+	cmp ax, [HighScore]
+	jna @@NoNewHScore
+	;New High Score
+	mov al, 1
+	mov ah, 3dh
+	mov dx, offset HighScoreFileName
+	int 21h
+	
+	mov [word HSFileHandle], ax
+	
+	
+	
+	
+	mov ah, 40h
+	mov bx, [word HSFileHandle]
+	mov cx, 2
+	mov dx, offset PlayerScore
+	int 21h
+	
+	mov ah, 3eh
+	mov bx, [HSFileHandle]
+	int 21h
+	
+	mov ah, 2
+	mov bh, 0
+	mov dh, 18 ; line number
+	mov dl, 7; column number
+	int 10h
+	
+	mov dx, offset NewHighScoreTect
+	mov ah, 9
+	int 21h
+	
+@@NoNewHScore:
+	popa
+	ret
+endp CheckHighScore
+
+;Description: Takes a part of the background and puts it on the matching spot in the screen
+;Input: Through Stack: 1.X(With Decimal Point) 2.Y(With Decimal Point) 3.Length(With Decimal Point) 4. Height(With Decimal Point)
+;Output: On srceen
+proc PutBackgroundInSpot
+	push bp
+	mov bp, sp
+	sub sp, 2
+	pusha
+	
+	;make room for padding variable
+	;[bp - 2] -> Padding
+	
+	sub sp, 2
+	push [word bp + 8]
+	call RemoveFixedDecimalPoint
+	pop [word bp + 8]
+	
+	sub sp, 2
+	push [word bp + 10]
+	call RemoveFixedDecimalPoint
+	pop [word bp + 10]
+	
+	
+	
+	sub sp, 2
+	push [word bp + 4]
+	call RemoveFixedDecimalPoint
+	pop [word bp + 4]
+	
+	sub sp, 2
+	push [word bp + 6]
+	call RemoveFixedDecimalPoint
+	pop [word bp + 6]
+	
+	
+	
+	mov dx, offset BackGroundBMPFileName
+	call OpenMyBmpFile
+	
+	mov dx, offset BackGroundBMPFileName
+	call ReadMyBmpHeader
+	
+	mov dx, offset BackGroundBMPFileName
+	call ReadMyBmpPalette
+	
+	mov ax, VideoSegment
+	mov es, ax
+	
+	
+	
+	mov ax,BackgroundBMPLength ; row size must dived by 4 so if it less we must calculate the extra padding bytes
+	xor dx,dx
+	mov si,4
+	div si
+	cmp dx,0
+	mov [word bp-2], 0
+	jz @@row_ok
+	mov [word bp - 2],4
+	sub [word bp - 2],dx
+
+@@row_ok:
+	mov cx, BackgroundBMPHeight
+	sub cx, [bp + 8]
+	sub cx, [bp + 4]
+@@GetToReleventRow:
+	
+	
+	;cmp cx, 0
+	;jz @@RowNumberOK
+	
+	;push cx
+	mov ax, BackgroundBMPLength
+	add ax,[bp - 2]  ; extra  bytes to each row must be divided by 4
+	mul cx
+	
+	mov cx, dx
+	mov dx, ax
+	
+	mov ah,42h
+	mov al, 1
+	;mov cx, [bp + 6]
+	
+	mov bx, [MyFileHandle]
+	;mov dx,offset ScrLine
+	int 21h
+	;pop cx
+	;loop @@GetToReleventRow
+	
+@@RowNumberOK:
+	
+	mov cx, [bp + 4]
+	mov dx, [bp + 10]
+	
+@@NextLine:
+	push cx
+	push dx
+	
+	mov di, cx
+	add di, [bp + 8]
+	
+	mov cx, di
+	shl cx, 6
+	shl di, 8
+	add di, cx
+	add di, dx
+	
+	sub di, 320
+	
+	mov ah,3fh
+	mov cx,	BackgroundBMPLength  
+	add cx, [bp - 2]  ; extra  bytes to each row must be divided by 4
+	mov dx,offset MyScrLine
+	int 21h
+	
+	; Copy one line into video memory
+	cld ; Clear direction flag, for movsb
+	mov cx, [bp + 6]  
+	mov si,offset MyScrLine
+	add si, [bp + 10]
+	
+	rep movsb ; Copy line to the screen
+	
+	pop dx
+	pop cx
+	
+	loop @@NextLine
+	
+	call CloseMyBmpFile
+	
+	
+	add sp, 2
+	popa
+	pop bp
+	ret 8
+endp PutBackgroundInSpot
+
+;Description:Prints the background bmp to the screen
+proc PrintBackground
+	pusha
+	;DX = offset FileName, BmpLeft = X position on screen(0 - 319), BmpTop = Y position on screen(0 - 200), BmpColSize = Length ,BmpRowSize = Hight
+	mov dx, offset BackGroundBMPFileName
+	
+	mov [word BmpLeft], 0
+	mov [word BmpTop], 0
+	mov [word BmpColSize], BackgroundBMPLength
+	mov [word BmpRowSize], BackgroundBMPHeight
+	
+	call OpenShowBmp
+	
+	
+	popa
+	ret
+endp PrintBackground
 
 ;Description: Changes mouse shape
 proc SetMouseShape
@@ -874,6 +1083,8 @@ endp DisplayKHP
 
 ;Description: Draws Zombie
 ;Input: through stack 1.offset zombie
+;Description: Draws Zombie
+;Input: through stack 1.offset zombie
 proc DrawZombie
 	push bp
 	mov bp, sp
@@ -889,19 +1100,19 @@ proc DrawZombie
 	cmp [byte bx + 11], 0
 	jnz @@LeftFrame1
 	;RightFrame1
-	mov dx, offset ZMBWR1FileName
+	mov [word matrix], offset ZMBWR1Matrix
 	jmp @@PictureSelected
 @@LeftFrame1:
-	mov dx, offset ZMBWL1FileName
+	mov [word matrix], offset ZMBWL1Matrix
 	jmp @@PictureSelected
 @@NotFirstFrame:
 	cmp [byte bx + 11], 0
 	jnz @@LeftFrame2
 	;RightFrame2
-	mov dx, offset ZMBWR2FileName
+	mov [word matrix], offset ZMBWR2Matrix
 	jmp @@PictureSelected
 @@LeftFrame2:
-	mov dx, offset ZMBWL2FileName
+	mov [word matrix], offset ZMBWL2Matrix
 	jmp @@PictureSelected
 	
 	
@@ -917,28 +1128,25 @@ proc DrawZombie
 @@FrameNumberOk:
 
 	sub sp, 2
-	push [word bx + 1]
-	call RemoveFixedDecimalPoint
-	pop [BmpLeft]
+	push [word bx + 1];push x
+	push [word bx + 3];push y
+	call XYToMemory
+	pop di
 	
-	sub sp, 2
-	push [word bx + 3]
-	call RemoveFixedDecimalPoint
-	pop [BmpTop]
 	
 	sub sp, 2
 	push ZombiLength
 	call RemoveFixedDecimalPoint
-	pop [BmpColSize]
+	pop dx
 	
 	sub sp, 2
 	push ZombiHeight
 	call RemoveFixedDecimalPoint
-	pop [BmpRowSize]
+	pop cx
 	
-	
-	call OpenShowBmp
-	
+	call HideCurser
+	call putMatrixInScreen
+	call ShowCurser
 	
 @@endproc:
 	popa
@@ -985,30 +1193,30 @@ proc UndrawZombie
 	
 	mov bx, [bp + 4]
 	
-	mov dx, offset ZMBEraseFileName
+	;mov dx, offset ZMBEraseFileName
 	
-	sub sp, 2
+	;sub sp, 2
 	push [word bx + 1]
-	call RemoveFixedDecimalPoint
-	pop [BmpLeft]
+	;call RemoveFixedDecimalPoint
+	;pop [BmpLeft]
 	
-	sub sp, 2
+	;sub sp, 2
 	push [word bx + 3]
-	call RemoveFixedDecimalPoint
-	pop [BmpTop]
+	;call RemoveFixedDecimalPoint
+	;pop [BmpTop]
 	
-	sub sp, 2
+	;sub sp, 2
 	push ZombiLength
-	call RemoveFixedDecimalPoint
-	pop [BmpColSize]
+	;call RemoveFixedDecimalPoint
+	;pop [BmpColSize]
 	
-	sub sp, 2
+	;sub sp, 2
 	push ZombiHeight
-	call RemoveFixedDecimalPoint
-	pop [BmpRowSize]
+	;call RemoveFixedDecimalPoint
+	;pop [BmpRowSize]
 	
-	
-	call OpenShowBmp
+	call PutBackgroundInSpot
+	;call OpenShowBmp
 	
 	
 	popa
@@ -1052,6 +1260,7 @@ proc UpdateZombie
 	Call ShowScore
 	jmp @@endproc
 @@Alive:
+
 	push bx
 	call UndrawZombie
 	
@@ -1278,6 +1487,8 @@ proc ActivateZmbRnd
 	push bx
 	call SetZombieBehavior
 	
+	inc [byte ActiveZombieCounter]
+	
 	
 	popa
 	pop bp
@@ -1418,29 +1629,41 @@ proc DrawBullet
 	ret 2
 endp DrawBullet
 
+;input stack 1. offset bullet
 proc UndrawBullet
 	push bp
 	mov bp, sp
 	pusha
 	
-	mov bx, [bp + 4]
+	; mov bx, [bp + 4]
 	
-	sub sp, 2
-	push [Word bx + 1]
-	push [Word bx + 3]
-	call XYToMemory
+	; sub sp, 2
+	; push [Word bx + 1]
+	; push [Word bx + 3]
+	; call XYToMemory
 	
-	pop di
+	; pop di
 	
-	mov [word matrix], offset BulletEraseArray
-	mov dx, BULLETLENGTH
-	shr dx, 4
-	mov cx, BULLETHEIGHT
-	shr cx, 4
+	; mov [word matrix], offset BulletEraseArray
+	; mov dx, BULLETLENGTH
+	; shr dx, 4
+	; mov cx, BULLETHEIGHT
+	; shr cx, 4
 	
-	call putMatrixInScreen
+	; call putMatrixInScreen
+	
+	
 	
 	;1. DX = Line Length, CX = Amount of Lines, Variable matrix = Offset of the matrix you want to print, DI = Location to Print on screen(0 - 64,000)
+	
+	mov bx, [bp + 4]
+	push [word bx + 1]
+	push [word bx + 3]
+	push BULLETLENGTH
+	push BULLETHEIGHT
+	call PutBackgroundInSpot
+	
+	
 	popa
 	pop bp
 	ret 2
@@ -1464,7 +1687,7 @@ proc Update_activated_Bullets
 	call MoveBullet
 	
 	push bx 
-	call CheckBulletHitZombies
+	call CheckBulletHitZombies;Bullets and Zombie;********************************
 	
 	push bx
 	call DrawBullet
@@ -1494,9 +1717,12 @@ proc MoveBullet
 	cmp [word bx + 1], 0h
 	jnle @@NotHitLeftWall
 	mov [byte bx], 1;bullet hit left wall
+	mov [word bx + 1], 0
 	push bx
 	call UndrawBullet
+	dec [ActiveBulletCounter]
 	mov [KNeedDraw], 0
+	jmp @@EndProc
 @@NotHitLeftWall:
 
 	mov cx, [word bx + 1]
@@ -1504,9 +1730,13 @@ proc MoveBullet
 	cmp cx, MaxBoardLength
 	jnae @@NotHitRightWall
 	mov [byte bx], 1;bullet hit right wall
+	mov [word bx + 1], MaxBoardLength - BULLETLENGTH
+	
 	push bx
 	call UndrawBullet
+	dec [ActiveBulletCounter]
 	mov [KNeedDraw], 0
+	jmp @@EndProc
 @@NotHitRightWall:
 
 	
@@ -1517,9 +1747,12 @@ proc MoveBullet
 	cmp [word bx + 3], 0
 	jnle @@NotHitUpperWall
 	mov [byte bx], 1;bullet hit upper wall
+	mov [word bx + 3], 0
 	push bx
 	call UndrawBullet
+	dec [ActiveBulletCounter]
 	mov [KNeedDraw], 0
+	jmp @@EndProc
 @@NotHitUpperWall:
 	
 	mov cx, [word bx + 3]
@@ -1530,11 +1763,13 @@ proc MoveBullet
 	mov [word bx + 3], MaxBoardHeight - BULLETHEIGHT
 	push bx
 	call UndrawBullet
+	dec [ActiveBulletCounter]
 	mov [KNeedDraw], 0
+	jmp @@EndProc
 @@NotHitLowerWall:
 
 
-	
+@@EndProc:
 	
 	pop cx
 	pop bx
@@ -1605,8 +1840,10 @@ proc KnightShotZombie
 	sub [byte bx + 9], BulletDamage
 	jnc @@NotKill
 	mov [byte bx + 9], 0
+	dec [ActiveZombieCounter]
 @@NotKill:
 	mov [byte di], 1
+	dec [ActiveBulletCounter]
 	push di
 	call UndrawBullet
 	
@@ -1773,7 +2010,7 @@ proc ActivateBullet
 	push bx
 	call MoveBullet
 	
-	
+	inc [ActiveBulletCounter]
 	
 	pop si
 	pop di
@@ -1789,16 +2026,36 @@ endp ActivateBullet
 
 ;Description: Delays game
 proc LoopDelay
-	push cx
+	pusha
+	
 	mov cx ,30
-@@Self1:
-	push cx
-	mov cx,3000   
-@@Self2:	
-	loop @@Self2
-	pop cx
-	loop @@Self1
-	pop cx
+	xor dx, dx
+	
+	mov al, [ActiveBulletCounter]
+	xor ah, ah
+	add dx, ax
+	
+	mov al, [ActiveZombieCounter]
+	xor ah, ah
+	
+	shl ax, 5
+	
+	add dx, ax
+	
+	
+	
+	
+	
+@@OK:
+; @@Self1:
+	; push cx
+	; mov cx, 3000
+	; sub cx, dx
+; @@Self2:
+	; loop @@Self2
+	; pop cx
+	; loop @@Self1
+	popa
 	ret
 endp LoopDelay
 
@@ -2162,15 +2419,98 @@ endp CheckKeys
 proc DrawKnight
 	pusha
 	
+	; cmp [FrameNumber], 0
+	; jnz @@NotFrame1
+	
+	; cmp [byte KRolling], 0
+	; jnz @@NotRolling1
+	; mov dx, offset KnightRoll1FileName
+	; jmp @@PrintKnight
+; @@NotRolling1:	
+	; mov dx, offset KnightDefultFileName
+	
+	; jmp @@FrameNumberOk
+	
+; @@NotFrame1:
+	
+	; cmp [FrameNumber], 1
+	; jnz @@NotFrame2
+	
+	
+	; cmp [byte KRolling], 0
+	; jnz @@NotRolling2
+	; mov dx, offset KnightRoll2FileName
+	; jmp @@PrintKnight
+; @@NotRolling2:
+
+
+	; mov dx, offset KnightWalk1FileName
+	; jmp @@FrameNumberOk
+; @@NotFrame2:
+
+	; cmp [FrameNumber], 2
+	; jnz @@NotFrame3
+	
+	
+	; cmp [byte KRolling], 0
+	; jnz @@NotRolling3
+	; mov dx, offset KnightRoll3FileName
+	; jmp @@PrintKnight
+; @@NotRolling3:
+	
+	
+	; mov dx, offset KnightWalk2FileName
+	; jmp @@FrameNumberOk
+; @@NotFrame3:
+; @@FrameNumberOk:
+
+	; inc [byte KnightWalkFrameChangeCounter]
+	; cmp [byte KnightWalkFrameChangeCounter], KnightFrameChangeRate
+	; jnz @@PrintKnight
+	; mov [byte KnightWalkFrameChangeCounter], 0
+	; inc [FrameNumber];inc for next time this draws
+	
+	; cmp [FrameNumber], 2;if the counter is above 2(there are 3 pictures)
+	; jna @@PrintKnight
+	
+	; mov [FrameNumber], 0
+	
+; @@PrintKnight:
+
+	; sub sp, 2
+	; push [XPlayer]
+	; call RemoveFixedDecimalPoint
+	; pop [BmpLeft]
+	
+	; sub sp, 2
+	; push [YPlayer]
+	; call RemoveFixedDecimalPoint
+	; pop [BmpTop]
+	
+	; sub sp, 2
+	; push PLAYERLENGTH
+	; call RemoveFixedDecimalPoint
+	; pop [BmpColSize]
+	
+	; sub sp, 2
+	; push PLAYERHIGHT
+	; call RemoveFixedDecimalPoint
+	; pop [BmpRowSize]
+	
+	; call OpenShowBmp
+	
 	cmp [FrameNumber], 0
 	jnz @@NotFrame1
 	
 	cmp [byte KRolling], 0
 	jnz @@NotRolling1
-	mov dx, offset KnightRoll1FileName
+	mov [word matrix], offset KnightRoll2Matrix
 	jmp @@PrintKnight
 @@NotRolling1:	
-	mov dx, offset KnightDefultFileName
+	
+	
+	
+	mov [word matrix], offset KnightDefultMatrix
 	
 	jmp @@FrameNumberOk
 	
@@ -2182,12 +2522,12 @@ proc DrawKnight
 	
 	cmp [byte KRolling], 0
 	jnz @@NotRolling2
-	mov dx, offset KnightRoll2FileName
+	mov [word matrix], offset KnightRoll2Matrix
 	jmp @@PrintKnight
 @@NotRolling2:
 
 
-	mov dx, offset KnightWalk1FileName
+	mov [word matrix], offset KnightWalk1Matrix
 	jmp @@FrameNumberOk
 @@NotFrame2:
 
@@ -2197,16 +2537,16 @@ proc DrawKnight
 	
 	cmp [byte KRolling], 0
 	jnz @@NotRolling3
-	mov dx, offset KnightRoll3FileName
+	mov [word matrix], offset KnightRoll3Matrix
 	jmp @@PrintKnight
 @@NotRolling3:
 	
 	
-	mov dx, offset KnightWalk2FileName
+	mov [word matrix], offset KnightWalk2Matrix
 	jmp @@FrameNumberOk
 @@NotFrame3:
-@@FrameNumberOk:
 
+@@FrameNumberOk:
 	inc [byte KnightWalkFrameChangeCounter]
 	cmp [byte KnightWalkFrameChangeCounter], KnightFrameChangeRate
 	jnz @@PrintKnight
@@ -2217,30 +2557,31 @@ proc DrawKnight
 	jna @@PrintKnight
 	
 	mov [FrameNumber], 0
-	
 @@PrintKnight:
 
-	sub sp, 2
-	push [XPlayer]
-	call RemoveFixedDecimalPoint
-	pop [BmpLeft]
-	
-	sub sp, 2
-	push [YPlayer]
-	call RemoveFixedDecimalPoint
-	pop [BmpTop]
-	
+
 	sub sp, 2
 	push PLAYERLENGTH
 	call RemoveFixedDecimalPoint
-	pop [BmpColSize]
+	pop dx
 	
 	sub sp, 2
 	push PLAYERHIGHT
 	call RemoveFixedDecimalPoint
-	pop [BmpRowSize]
+	pop cx
 	
-	call OpenShowBmp
+	sub sp, 2
+	push [word XPlayer]
+	push [word YPlayer]
+	call XYToMemory
+	pop di
+	
+	
+	call HideCurser
+	call putMatrixInScreen
+	call ShowCurser
+	
+@@EndProc:
 	
 	popa
 	ret
@@ -2284,36 +2625,45 @@ proc UndrawKnight
 	; pop di
 	; pop cx
 	; pop dx
-	; ret
-	push dx
 	
-	mov dx, offset KnightEraseFileName
 	
-	sub sp, 2
+	; push dx
+	
+	; mov dx, offset KnightEraseFileName
+	
+	; sub sp, 2
+	; push [LastXPlayer]
+	; call RemoveFixedDecimalPoint
+	; pop [BmpLeft]
+	
+	; sub sp, 2
+	; push [LastYPlayer]
+	; call RemoveFixedDecimalPoint
+	; pop [BmpTop]
+	
+	; sub sp, 2
+	; push PLAYERLENGTH
+	; call RemoveFixedDecimalPoint
+	; pop [BmpColSize]
+	
+	; sub sp, 2
+	; push PLAYERHIGHT
+	; call RemoveFixedDecimalPoint
+	; pop [BmpRowSize]
+	
+	
+	; call OpenShowBmp
+	
+	; pop dx
+	
 	push [LastXPlayer]
-	call RemoveFixedDecimalPoint
-	pop [BmpLeft]
-	
-	sub sp, 2
 	push [LastYPlayer]
-	call RemoveFixedDecimalPoint
-	pop [BmpTop]
-	
-	sub sp, 2
 	push PLAYERLENGTH
-	call RemoveFixedDecimalPoint
-	pop [BmpColSize]
-	
-	sub sp, 2
 	push PLAYERHIGHT
-	call RemoveFixedDecimalPoint
-	pop [BmpRowSize]
+	call PutBackgroundInSpot
 	
 	
-	call OpenShowBmp
 	
-	
-	pop dx
 	ret
 endp UndrawKnight
 
@@ -2701,6 +3051,192 @@ proc XYtoAdd2DotsWithNeg
 	ret 10
 endp XYtoAdd2DotsWithNeg
 
+;Description: Copies A bmp into a Matrix
+;Input: 1. BMP Name offset 2. BMP Length 3. BMP Height 4. Matrix offset
+proc ConvertBMPtoMatrix
+	push bp
+	mov bp, sp
+	sub sp, 2
+	pusha
+	
+	
+	
+	; sub sp, 2
+	; push [word bp + 8]
+	; call RemoveFixedDecimalPoint
+	
+	; pop ax
+	
+	; sub sp, 2
+	; push [word bp + 6]
+	; call RemoveFixedDecimalPoint
+	
+	; pop bx
+	
+	; mul bx
+	
+	; mov [BmpColSize], ax
+	
+	; mov [BmpRowSize], 1
+	
+	; mov ax, [bp + 4]
+	; mov [BmpLeft], ax
+	
+	; mov [word BmpTop], 0
+	
+	; mov dx, [bp + 10]
+	
+	; mov [PutBMPSegement], ds
+	
+	; call OpenShowBmp
+	
+	; mov [PutBMPSegement], VideoSegment
+	
+	
+;*****************************************fix this******************************************************************************
+	mov dx, [bp + 10]
+	call OpenMyBmpFile
+	
+	call ReadBmpHeader
+	
+	call ReadBmpPalette
+	
+	call CopyBmpPalette
+	
+	sub sp, 2
+	push [word bp + 8]
+	call RemoveFixedDecimalPoint
+	pop [word bp + 8]
+	
+	sub sp, 2
+	push [word bp + 6]
+	call RemoveFixedDecimalPoint
+	pop [word bp + 6]
+	
+	mov ax, ds
+	mov es, ax
+	
+	mov ax, [word bp + 8];padding
+	xor dx, dx
+	mov si, 4
+	div si
+	cmp dx, 0
+	mov [word bp - 2], 0
+	jz @@row_ok
+	mov [word bp - 2], 4
+	sub [word bp - 2], dx
+	
+@@row_ok:
+	
+	mov cx, [bp + 6]
+	
+@@NextRow:
+	push cx
+	
+	
+	mov ah, 3fh
+	mov cx, [bp + 8]
+	add cx, [bp - 2]
+	mov dx, offset MyScrLine
+	int 21h
+	
+	
+	
+	
+	mov di, [bp + 4]
+	
+	mov ax, [bp + 6]
+	
+	mul [word bp + 8]
+	
+	sub ax, [bp + 8]
+	
+	add di, ax; di -> start of row
+	
+	mov si, offset MyScrLine
+	
+	mov cx, [bp + 8]
+	rep movsb
+	
+	dec [word bp + 6]
+	pop cx
+	loop @@NextRow
+	
+	
+	
+	call CloseMyBmpFile
+	
+	add sp, 2
+	popa
+	pop bp
+	ret 8
+endp ConvertBMPtoMatrix
+
+;Description: Converts all bmp to matrix
+proc ConvertAllBMPToMatrix
+	push offset KnightDefultFileName
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	push offset KnightDefultMatrix
+	call ConvertBMPtoMatrix
+	
+	push offset KnightWalk1FileName
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	push offset KnightWalk1Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset KnightWalk2FileName
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	push offset KnightWalk2Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset KnightRoll1FileName
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	push offset KnightRoll1Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset KnightRoll2FileName
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	push offset KnightRoll2Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset KnightRoll3FileName
+	push PLAYERLENGTH
+	push PLAYERHIGHT
+	push offset KnightRoll3Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset ZMBWL1FileName
+	push ZombiLength
+	push ZombiHeight
+	push offset ZMBWL1Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset ZMBWL2FileName
+	push ZombiLength
+	push ZombiHeight
+	push offset ZMBWL2Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset ZMBWR1FileName
+	push ZombiLength
+	push ZombiHeight
+	push offset ZMBWR1Matrix
+	call ConvertBMPtoMatrix
+	
+	push offset ZMBWR2FileName
+	push ZombiLength
+	push ZombiHeight
+	push offset ZMBWR2Matrix
+	call ConvertBMPtoMatrix
+	
+	ret
+endp ConvertAllBMPToMatrix
+
 
 
 ;----------------
@@ -2888,11 +3424,11 @@ endp RandomByCsWord
 
 ; Description  : Print a bmp file.
 ; Input        : 1. DX = offset FileName, BmpLeft = X position on screen(0 - 319), BmpTop = Y position on screen(0 - 200), BmpColSize = Length ,BmpRowSize = Hight
-; 			     2. Requirements: Variables: OneBmpLine, ScrLine, FileHandle, Header, Palette, ErrorFile, BmpFileErrorMsg
+; 			     2. Requirements: Variables: OneBmpLine, ScrLine, FileHandle, Header, Palette, ErrorFile
 ; Output:        On screen
 proc OpenShowBmp near
 	
-	 
+	mov [byte ErrorFile], 0
 	call OpenBmpFile
 	cmp [ErrorFile],1
 	je @@ExitProc
@@ -2907,8 +3443,10 @@ proc OpenShowBmp near
 	
 	 
 	call CloseBmpFile
-
+	
 @@ExitProc:
+
+	
 	ret
 endp OpenShowBmp
 
@@ -3003,7 +3541,7 @@ proc ShowBMP
 ; displaying the lines from bottom to top.
 	push cx
 	
-	mov ax, [word PutBMPSegement]
+	mov ax, [PutBMPSegement]
 	mov es, ax
 	
 	mov cx,[BmpRowSize]
@@ -3047,11 +3585,24 @@ proc ShowBMP
 	add cx,bp  ; extra  bytes to each row must be divided by 4
 	mov dx,offset ScrLine
 	int 21h
+	
 	; Copy one line into video memory
-	cld ; Clear direction flag, for movsb
+	;cld ; Clear direction flag, for movsb
 	mov cx,[BmpColSize]  
 	mov si,offset ScrLine
-	rep movsb ; Copy line to the screen
+	push ax
+@@Next_Pixel:; Copy line to the screen
+	
+	mov al, [ds:si]
+	cmp al, 06fh
+	jz @@PixelDone
+	
+	mov [es:di], al
+@@PixelDone:
+	inc di
+	inc si
+	loop @@Next_Pixel
+	pop ax
 	
 	pop dx
 	pop cx
@@ -3087,7 +3638,19 @@ proc putMatrixInScreen
 @@NextRow:	
 	push cx
 	mov cx, dx
-	rep movsb ; Copy whole line to the screen, si and di advances in movsb
+	push ax
+@@Next_Pixel:; Copy line to the screen
+	
+	mov al, [ds:si]
+	cmp al, 06fh
+	jz @@PixelDone
+	
+	mov [es:di], al
+@@PixelDone:
+	inc di
+	inc si
+	loop @@Next_Pixel
+	pop ax
 	sub di,dx ; returns back to the begining of the line 
 	add di, 320 ; go down one line by adding 320
 	
@@ -3101,5 +3664,96 @@ proc putMatrixInScreen
 	pop es
     ret
 endp putMatrixInScreen
+
+
+;input: dx = offset file name
+;output: [MyFileHandle] = fiel handle
+proc OpenMyBmpFile	near
+	pusha						 
+	mov ah, 3Dh
+	xor al, al
+	int 21h
+	jc @@ErrorAtOpen
+	mov [MyFileHandle], ax
+	jmp @@ExitProc
+	
+@@ErrorAtOpen:
+	mov [MyErrorFile],1
+@@ExitProc:	
+	popa
+	ret
+endp OpenMyBmpFile
+
+;input: [MyFileHandle] = fiel handle
+proc CloseMyBmpFile near
+	pusha
+	mov ah,3Eh
+	mov bx, [MyFileHandle]
+	int 21h
+	popa
+	ret
+endp CloseMyBmpFile
+
+;input: [MyFileHandle] = fiel handle
+proc ReadMyBmpHeader	near					
+	pusha
+	
+	mov ah,3fh
+	mov bx, [MyFileHandle]
+	mov cx,54
+	mov dx,offset MyHeader
+	int 21h
+	
+	popa
+	ret
+endp ReadMyBmpHeader
+
+;input: [MyFileHandle] = fiel handle
+;output: [MyPalette]
+proc ReadMyBmpPalette near ; Read BMP file color palette, 256 colors * 4 bytes (400h)
+						 ; 4 bytes for each color BGR + null)			
+	pusha
+	
+	mov ah,3fh
+	mov cx,400h
+	mov dx,offset MyPalette
+	mov bx, [MyFileHandle]
+	int 21h
+	
+	popa
+	
+	ret
+endp ReadMyBmpPalette
+
+proc CopyMyBmpPalette		near					
+										
+	pusha
+	
+	mov si,offset MyPalette
+	mov cx,256
+	mov dx,3C8h
+	mov al,0  ; black first							
+	out dx,al ;3C8h
+	inc dx	  ;3C9h
+@@CopyNextColor:
+	mov al,[si+2] 		; Red				
+	shr al,2 			; divide by 4 Max (cos max is 63 and we have here max 255 ) (loosing color resolution).				
+	out dx,al 						
+	mov al,[si+1] 		; Green.				
+	shr al,2            
+	out dx,al 							
+	mov al,[si] 		; Blue.				
+	shr al,2            
+	out dx,al 							
+	add si,4 			; Point to next color.  (4 bytes for each color BGR + null)				
+								
+	loop @@CopyNextColor
+	
+	popa
+	
+	ret
+endp CopyMyBmpPalette
+
+
 EndOfCsLbl:
 END start
