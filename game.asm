@@ -64,7 +64,8 @@ NumberOfZombies = 8
 
 ZombieHP = 60;Zombie HP
 
-ZMBSPEED = 22h;Zombie Speed
+ZMBSpeedInc = 02h;Speed increased after a number of zombie kills
+AmountOfZombiesKilledForSpeedInc = 15;
 
 ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
 
@@ -300,7 +301,7 @@ DATASEG
 ;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
 	
 ;Zombi Offset Array
-	ZombieOffsetArray dw Zombie1Active, Zombie2Active, Zombie3Active, Zombie4Active, Zombie5, Zombie6, Zombie7, Zombie8
+	ZombieOffsetArray dw Zombie1Active, Zombie2, Zombie3, Zombie4, Zombie5, Zombie6, Zombie7, Zombie8
 	ZMBWL1FileName db ZombieWalkLeft1FName, 0
 	ZMBWL1Matrix db 120 dup (0)
 	
@@ -314,6 +315,7 @@ DATASEG
 	ZMBWR2Matrix db 120 dup (0)
 	
 	ActiveZombieCounter db 0
+	ZMBSPEED dw 22h
 	
 ;Zombi1
 	Zombie1Active db 1;bool to represent if the zombie is alive/active; offset + 0
@@ -329,43 +331,13 @@ DATASEG
 	ZMB1AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
 
 ;Zombi2
-	Zombie2Active db 1;bool to represent if the zombie is alive/active; offset + 0
-	Zombie2X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
-	Zombie2Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
-	Zombie2XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
-	Zombie2YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
-	Zombie2HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
-	Zombie2WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
-	ZMB2Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
-	ZMB2CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
-	ZMB2CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
-	ZMB2AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+	Zombie2 db 1, 16 dup (0)
 	
 ;Zombi3
-	Zombie3Active db 1;bool to represent if the zombie is alive/active; offset + 0
-	Zombie3X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
-	Zombie3Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
-	Zombie3XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
-	Zombie3YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
-	Zombie3HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
-	Zombie3WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
-	ZMB3Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
-	ZMB3CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
-	ZMB3CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
-	ZMB3AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+	Zombie3 db 1, 16 dup (0)
 
 ;Zombi4
-	Zombie4Active db 1;bool to represent if the zombie is alive/active; offset + 0
-	Zombie4X dw ?;Variable to represent the X posotion of the Zombi; offset + 1
-	Zombie4Y dw ?;Variable to represent the Y posotion of the Zombi; offset + 3
-	Zombie4XToAdd dw ?;Variable to represent the X that will be added each time; offset + 5
-	Zombie4YToAdd dw ?;Variable to represent the Y that will be added each time; offset + 7
-	Zombie4HPVar db ZombieHP;Variable to representthe amount of hp the zombie has; offset + 9
-	Zombie4WalkFrameNumber db 0;Variable to represent what frame the zombi is in in the walking; offset + 10
-	ZMB4Direction db 0;Variable to represent which side the Zombie is going to 0 -> right 1 -> left ;offset + 11
-	ZMB4CountToBehaviorChange dw 0;Variable to control how often the behavior change; offset + 12
-	ZMB4CanMelleAtack db 0;bool to represent id the zombie can melle attack "hug" the player; offset + 14
-	ZMB4AttackCoolDownCounter dw 0;Variable to count the cooldown for zombie attack; offset + 15
+	Zombie4 db 1, 16 dup (0)
 	
 ;Zombie5
 	Zombie5 db 1, 16 dup (0)
@@ -467,6 +439,7 @@ GameLoop:
 	
 	
 	call ActivateZombiesRandomly
+	call DelayTheSameAmountEachCycle;delay the smae amount each cycle
 	call LoopDelay;delay
 	jmp GameLoop
 endOfMainLoop:
@@ -493,6 +466,38 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+proc DelayTheSameAmountEachCycle
+	pusha
+	
+	mov cx, NumberOfZombies
+	sub cl, [ActiveZombieCounter]
+	cmp cx, 0
+	jz @@NoDelay1
+@@Delay1:
+	push 0A00h
+	push 0ba0h
+	push ZombiLength
+	push ZombiHeight
+	call PutBackgroundInSpot
+	loop @@Delay1
+@@NoDelay1:
+
+	mov cx, BulletArrayLength
+	sub cl, [ActiveBulletCounter]
+	cmp cx, 0
+	jle @@NoDelay2
+@@Delay2:
+	push 0A00h
+	push 0ba0h
+	push BULLETLENGTH
+	push BULLETHEIGHT
+	call PutBackgroundInSpot
+	loop @@Delay2
+@@NoDelay2:
+
+	popa
+	ret
+endp DelayTheSameAmountEachCycle
 
 proc CheckHighScore
 	pusha
@@ -680,9 +685,8 @@ proc PutBackgroundInSpot
 	
 	call CloseMyBmpFile
 	
-	
-	add sp, 2
 	popa
+	add sp, 2
 	pop bp
 	ret 8
 endp PutBackgroundInSpot
@@ -1172,7 +1176,7 @@ proc SetZombieBehavior
 	push [word XPlayer]
 	push [word YPlayer]
 	
-	push ZMBSPEED
+	push [word ZMBSPEED]
 	
 	call XYtoAdd2DotsWithNeg
 	
@@ -1254,9 +1258,20 @@ proc UpdateZombie
 	cmp [byte bx + 9], 0;if Zombie Has HP
 	jnz @@Alive;You have to make sure that the hp is 0 when enemy is killed not lower (signed)
 	mov [byte bx], 1;Update to "dead"
+	dec [ActiveZombieCounter]
 	push bx
 	call UndrawZombie
 	inc [word PlayerScore]
+	pusha
+	mov ax, [PlayerScore]
+	xor dx, dx
+	mov bx, AmountOfZombiesKilledForSpeedInc
+	div bx
+	cmp dx, 0
+	jnz @@NoIncrease
+	add [ZMBSPEED], ZMBSpeedInc
+@@NoIncrease:
+	popa
 	Call ShowScore
 	jmp @@endproc
 @@Alive:
@@ -1840,7 +1855,7 @@ proc KnightShotZombie
 	sub [byte bx + 9], BulletDamage
 	jnc @@NotKill
 	mov [byte bx + 9], 0
-	dec [ActiveZombieCounter]
+	
 @@NotKill:
 	mov [byte di], 1
 	dec [ActiveBulletCounter]
@@ -2028,33 +2043,16 @@ endp ActivateBullet
 proc LoopDelay
 	pusha
 	
-	mov cx ,30
-	xor dx, dx
+	mov cx ,90
 	
-	mov al, [ActiveBulletCounter]
-	xor ah, ah
-	add dx, ax
-	
-	mov al, [ActiveZombieCounter]
-	xor ah, ah
-	
-	shl ax, 5
-	
-	add dx, ax
-	
-	
-	
-	
-	
-@@OK:
-; @@Self1:
-	; push cx
-	; mov cx, 3000
-	; sub cx, dx
-; @@Self2:
-	; loop @@Self2
-	; pop cx
-	; loop @@Self1
+@@Self1:
+	push cx
+	mov cx, 3000
+	sub cx, dx
+@@Self2:
+	loop @@Self2
+	pop cx
+	loop @@Self1
 	popa
 	ret
 endp LoopDelay
