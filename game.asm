@@ -64,7 +64,7 @@ NumberOfZombies = 8
 
 ZombieHP = 60;Zombie HP
 
-ZMBSpeedInc = 02h;Speed increased after a number of zombie kills
+ZMBSpeedInc = 06h;Speed increased after a number of zombie kills
 AmountOfZombiesKilledForSpeedInc = 15;
 
 ZombieMeleeAttackDamage = 20 ;The amount of damage zombies melee attack does
@@ -140,6 +140,7 @@ DATASEG
 ;Display Hp
 	EraseScoreText db '    $'
 	FinalScoreText db 'Your final score is: $'
+	
 
 ;Knight Variables
 	XPlayer dw PLAYERSTARTINGXPOS;Variable to represent the X position of the Knight (with fixed decimal point)
@@ -217,15 +218,14 @@ DATASEG
 	HighScoreFileName db "HS.txt", 0
 	HSFileHandle dw ?
 	HighScore dw ?
-	NewHighScoreTect db "You Broke the high score$"
+	NewHighScoreText db "You Broke the high score$"
+	HighScoreBeginingText db "The current high score is $"
 	
 
 ;Bullet Class
 ;Some of the procedures work on a group of variables that come in a certain order dependant on the offset (Like a class)
 ;The class structure is consistent and **can't be changed** If more variables are needed they can be added in the end of all the variabls.
 
-	
-	
 	
 	
 	BulletDrawArray db 1,6fh,4,6fh,1
@@ -399,6 +399,8 @@ start:
 ; --------------------------
 	call SetGraphic
 	call DisplayMainMenu
+	call GetHighScore
+	call DisplayHighScore
 	call WaitForEnter
 	call ClearScreen
 	call PrintBackground
@@ -499,7 +501,29 @@ proc DelayTheSameAmountEachCycle
 	ret
 endp DelayTheSameAmountEachCycle
 
-proc CheckHighScore
+proc DisplayHighScore
+	pusha
+	
+	mov ah, 2
+	mov bh, 0
+	mov dh, 19 ; line number
+	mov dl, 7; column number
+	int 10h
+	
+	
+	mov dx, offset HighScoreBeginingText
+	mov ah, 9
+	int 21h
+	
+	mov ax, [HighScore]
+	call printAxDec
+	
+	popa
+	ret
+endp DisplayHighScore
+
+;Output: HighScore
+proc GetHighScore
 	pusha
 	mov al, 0
 	mov ah, 3dh
@@ -516,6 +540,13 @@ proc CheckHighScore
 	mov ah, 3eh
 	mov bx, [HSFileHandle]
 	int 21h
+	popa
+	ret
+endp GetHighScore
+
+proc CheckHighScore
+	pusha
+	
 	
 	mov ax, [PlayerScore]
 	cmp ax, [HighScore]
@@ -547,7 +578,7 @@ proc CheckHighScore
 	mov dl, 7; column number
 	int 10h
 	
-	mov dx, offset NewHighScoreTect
+	mov dx, offset NewHighScoreText
 	mov ah, 9
 	int 21h
 	
@@ -563,10 +594,11 @@ proc PutBackgroundInSpot
 	push bp
 	mov bp, sp
 	sub sp, 2
-	pusha
-	
 	;make room for padding variable
 	;[bp - 2] -> Padding
+	pusha
+	
+	
 	
 	sub sp, 2
 	push [word bp + 8]
@@ -620,13 +652,10 @@ proc PutBackgroundInSpot
 	mov cx, BackgroundBMPHeight
 	sub cx, [bp + 8]
 	sub cx, [bp + 4]
-@@GetToReleventRow:
+
 	
 	
-	;cmp cx, 0
-	;jz @@RowNumberOK
-	
-	;push cx
+;get to relevent row in file
 	mov ax, BackgroundBMPLength
 	add ax,[bp - 2]  ; extra  bytes to each row must be divided by 4
 	mul cx
@@ -636,13 +665,12 @@ proc PutBackgroundInSpot
 	
 	mov ah,42h
 	mov al, 1
-	;mov cx, [bp + 6]
+	
 	
 	mov bx, [MyFileHandle]
-	;mov dx,offset ScrLine
+	
 	int 21h
-	;pop cx
-	;loop @@GetToReleventRow
+	
 	
 @@RowNumberOK:
 	
@@ -734,11 +762,7 @@ proc UpdateRoll
 	
 	mov [byte KNeedDraw], 0
 	
-	; mov ax, [word XPlayer]
-	; mov [word LastXPlayer], ax
-	
-	; mov ax, [word YPlayer]
-	; mov [word LastYPlayer], ax
+
 	
 	call AddXYPlayerRoll
 	
@@ -839,11 +863,7 @@ proc StartRoll
 
 
 
-	; mov ax, 3
-	; int 33h;get mouse x and y
 	
-	; shl cx, 3;Fix x mouse to decimal point
-	; shl dx, 4;Fix y mouse to decimal point
 	
 	mov cx, [XPlayer]
 	mov dx, [YPlayer]
@@ -1197,31 +1217,16 @@ proc UndrawZombie
 	
 	mov bx, [bp + 4]
 	
-	;mov dx, offset ZMBEraseFileName
-	
-	;sub sp, 2
 	push [word bx + 1]
-	;call RemoveFixedDecimalPoint
-	;pop [BmpLeft]
-	
-	;sub sp, 2
+
 	push [word bx + 3]
-	;call RemoveFixedDecimalPoint
-	;pop [BmpTop]
-	
-	;sub sp, 2
+
 	push ZombiLength
-	;call RemoveFixedDecimalPoint
-	;pop [BmpColSize]
-	
-	;sub sp, 2
+
 	push ZombiHeight
-	;call RemoveFixedDecimalPoint
-	;pop [BmpRowSize]
 	
 	call PutBackgroundInSpot
-	;call OpenShowBmp
-	
+
 	
 	popa
 	pop bp
@@ -1650,26 +1655,7 @@ proc UndrawBullet
 	mov bp, sp
 	pusha
 	
-	; mov bx, [bp + 4]
 	
-	; sub sp, 2
-	; push [Word bx + 1]
-	; push [Word bx + 3]
-	; call XYToMemory
-	
-	; pop di
-	
-	; mov [word matrix], offset BulletEraseArray
-	; mov dx, BULLETLENGTH
-	; shr dx, 4
-	; mov cx, BULLETHEIGHT
-	; shr cx, 4
-	
-	; call putMatrixInScreen
-	
-	
-	
-	;1. DX = Line Length, CX = Amount of Lines, Variable matrix = Offset of the matrix you want to print, DI = Location to Print on screen(0 - 64,000)
 	
 	mov bx, [bp + 4]
 	push [word bx + 1]
@@ -1732,25 +1718,35 @@ proc MoveBullet
 	cmp [word bx + 1], 0h
 	jnle @@NotHitLeftWall
 	mov [byte bx], 1;bullet hit left wall
+	
 	mov [word bx + 1], 0
+	
 	push bx
 	call UndrawBullet
+	
 	dec [ActiveBulletCounter]
+	
 	mov [KNeedDraw], 0
+	
 	jmp @@EndProc
 @@NotHitLeftWall:
 
 	mov cx, [word bx + 1]
 	add cx, BULLETHEIGHT
+	
 	cmp cx, MaxBoardLength
 	jnae @@NotHitRightWall
+	
 	mov [byte bx], 1;bullet hit right wall
 	mov [word bx + 1], MaxBoardLength - BULLETLENGTH
 	
 	push bx
 	call UndrawBullet
+	
 	dec [ActiveBulletCounter]
+	
 	mov [KNeedDraw], 0
+	
 	jmp @@EndProc
 @@NotHitRightWall:
 
@@ -1774,11 +1770,15 @@ proc MoveBullet
 	add cx, BULLETHEIGHT
 	cmp cx, MaxBoardHeight
 	jnae @@NotHitLowerWall
+	
 	mov [byte bx], 1;bullet hit lower wall
 	mov [word bx + 3], MaxBoardHeight - BULLETHEIGHT
+	
 	push bx
 	call UndrawBullet
+	
 	dec [ActiveBulletCounter]
+	
 	mov [KNeedDraw], 0
 	jmp @@EndProc
 @@NotHitLowerWall:
@@ -2016,16 +2016,32 @@ proc ActivateBullet
 	mov [word bx + 5], cx
 	mov [word bx + 7], si
 	
-	push bx
-	call MoveBullet
-	push bx
-	call MoveBullet
-	push bx
-	call MoveBullet
+	inc [ActiveBulletCounter]
+	
 	push bx
 	call MoveBullet
 	
-	inc [ActiveBulletCounter]
+	cmp [byte bx], 1
+	jz @@BulletDead
+	
+	push bx
+	call MoveBullet
+	
+	cmp [byte bx], 1
+	jz @@BulletDead
+	
+	push bx
+	call MoveBullet
+	
+	cmp [byte bx], 1
+	jz @@BulletDead
+	
+	push bx
+	call MoveBullet
+
+@@BulletDead:	
+	
+
 	
 	pop si
 	pop di
@@ -2343,11 +2359,7 @@ proc CheckKeys
 	cmp [KCanMove], 0;Check knight able to move
 	jnz @@CantMove
 	
-	; mov ax, [XPlayer]
-	; mov [LastXPlayer], ax
 	
-	; mov ax, [YPlayer]
-	; mov [LastYPlayer], ax
 	cmp [byte SpacePressed], 0
 	jnz @@SpaceNotPressed
 	
@@ -2417,85 +2429,6 @@ endp CheckKeys
 proc DrawKnight
 	pusha
 	
-	; cmp [FrameNumber], 0
-	; jnz @@NotFrame1
-	
-	; cmp [byte KRolling], 0
-	; jnz @@NotRolling1
-	; mov dx, offset KnightRoll1FileName
-	; jmp @@PrintKnight
-; @@NotRolling1:	
-	; mov dx, offset KnightDefultFileName
-	
-	; jmp @@FrameNumberOk
-	
-; @@NotFrame1:
-	
-	; cmp [FrameNumber], 1
-	; jnz @@NotFrame2
-	
-	
-	; cmp [byte KRolling], 0
-	; jnz @@NotRolling2
-	; mov dx, offset KnightRoll2FileName
-	; jmp @@PrintKnight
-; @@NotRolling2:
-
-
-	; mov dx, offset KnightWalk1FileName
-	; jmp @@FrameNumberOk
-; @@NotFrame2:
-
-	; cmp [FrameNumber], 2
-	; jnz @@NotFrame3
-	
-	
-	; cmp [byte KRolling], 0
-	; jnz @@NotRolling3
-	; mov dx, offset KnightRoll3FileName
-	; jmp @@PrintKnight
-; @@NotRolling3:
-	
-	
-	; mov dx, offset KnightWalk2FileName
-	; jmp @@FrameNumberOk
-; @@NotFrame3:
-; @@FrameNumberOk:
-
-	; inc [byte KnightWalkFrameChangeCounter]
-	; cmp [byte KnightWalkFrameChangeCounter], KnightFrameChangeRate
-	; jnz @@PrintKnight
-	; mov [byte KnightWalkFrameChangeCounter], 0
-	; inc [FrameNumber];inc for next time this draws
-	
-	; cmp [FrameNumber], 2;if the counter is above 2(there are 3 pictures)
-	; jna @@PrintKnight
-	
-	; mov [FrameNumber], 0
-	
-; @@PrintKnight:
-
-	; sub sp, 2
-	; push [XPlayer]
-	; call RemoveFixedDecimalPoint
-	; pop [BmpLeft]
-	
-	; sub sp, 2
-	; push [YPlayer]
-	; call RemoveFixedDecimalPoint
-	; pop [BmpTop]
-	
-	; sub sp, 2
-	; push PLAYERLENGTH
-	; call RemoveFixedDecimalPoint
-	; pop [BmpColSize]
-	
-	; sub sp, 2
-	; push PLAYERHIGHT
-	; call RemoveFixedDecimalPoint
-	; pop [BmpRowSize]
-	
-	; call OpenShowBmp
 	
 	cmp [FrameNumber], 0
 	jnz @@NotFrame1
@@ -2591,68 +2524,7 @@ endp DrawKnight
 ;Input: Input in the Knight variables
 ;Output: On screem
 proc UndrawKnight
-	; push dx
-	; push cx
-	; push di
-	; push ax
 	
-	; sub sp, 2
-	; push PLAYERLENGTH
-	; call RemoveFixedDecimalPoint
-	; pop dx
-	
-	; sub sp, 2
-	; push PLAYERHIGHT
-	; call RemoveFixedDecimalPoint
-	; pop cx
-	;inc cx;?
-	
-	; mov [matrix], offset HugeEraseMatrix
-	; sub sp, 2
-	; push [LastXPlayer]
-	; push [LastYPlayer]
-	; mov ax, [LastYPlayer]
-	; add ax, 10000b
-	; push ax
-	; call XYToMemory
-	; pop di
-	
-	; call putMatrixInScreen
-	
-	; pop ax
-	; pop di
-	; pop cx
-	; pop dx
-	
-	
-	; push dx
-	
-	; mov dx, offset KnightEraseFileName
-	
-	; sub sp, 2
-	; push [LastXPlayer]
-	; call RemoveFixedDecimalPoint
-	; pop [BmpLeft]
-	
-	; sub sp, 2
-	; push [LastYPlayer]
-	; call RemoveFixedDecimalPoint
-	; pop [BmpTop]
-	
-	; sub sp, 2
-	; push PLAYERLENGTH
-	; call RemoveFixedDecimalPoint
-	; pop [BmpColSize]
-	
-	; sub sp, 2
-	; push PLAYERHIGHT
-	; call RemoveFixedDecimalPoint
-	; pop [BmpRowSize]
-	
-	
-	; call OpenShowBmp
-	
-	; pop dx
 	
 	push [LastXPlayer]
 	push [LastYPlayer]
@@ -3059,39 +2931,7 @@ proc ConvertBMPtoMatrix
 	
 	
 	
-	; sub sp, 2
-	; push [word bp + 8]
-	; call RemoveFixedDecimalPoint
 	
-	; pop ax
-	
-	; sub sp, 2
-	; push [word bp + 6]
-	; call RemoveFixedDecimalPoint
-	
-	; pop bx
-	
-	; mul bx
-	
-	; mov [BmpColSize], ax
-	
-	; mov [BmpRowSize], 1
-	
-	; mov ax, [bp + 4]
-	; mov [BmpLeft], ax
-	
-	; mov [word BmpTop], 0
-	
-	; mov dx, [bp + 10]
-	
-	; mov [PutBMPSegement], ds
-	
-	; call OpenShowBmp
-	
-	; mov [PutBMPSegement], VideoSegment
-	
-	
-;*****************************************fix this******************************************************************************
 	mov dx, [bp + 10]
 	call OpenMyBmpFile
 	
