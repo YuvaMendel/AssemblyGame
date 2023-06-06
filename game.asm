@@ -41,7 +41,7 @@ KeyboardInterruptPosition = 9 * 4
 ;Bullet Class attributes
 BULLETLENGTH = 50h;Fixed decimal point
 BULLETHEIGHT = 50h;shot is a cube
-BulletSpeed = 035h; speed of bullet vector
+BulletSpeed = 03ah; speed of bullet vector
 BulletArrayLength = 16
 BulletDamage = 30
 
@@ -468,6 +468,9 @@ exit:
 ;----------------
 ;----------------
 ;My Procedures
+
+;Description: Makes Delay be the same all the time
+;Input: ActiveZombieCounter, ActiveBulletCounter
 proc DelayTheSameAmountEachCycle
 	pusha
 	
@@ -501,6 +504,9 @@ proc DelayTheSameAmountEachCycle
 	ret
 endp DelayTheSameAmountEachCycle
 
+;Description: Displays the high score in the bottom of the screen
+;Input: HighScore
+;Output: On screen
 proc DisplayHighScore
 	pusha
 	
@@ -522,6 +528,7 @@ proc DisplayHighScore
 	ret
 endp DisplayHighScore
 
+;input: File HS.txt
 ;Output: HighScore
 proc GetHighScore
 	pusha
@@ -544,6 +551,9 @@ proc GetHighScore
 	ret
 endp GetHighScore
 
+;Description: check if the current score is higher then high score and updates the high score file
+;input:PlayerScore, HighScore
+;Output: HS.txt
 proc CheckHighScore
 	pusha
 	
@@ -843,7 +853,6 @@ endp AddXYPlayerRoll
 
 
 ;Description: Player starts Rolling
-;Fix this
 proc StartRoll
 	pusha 
 	
@@ -1107,8 +1116,6 @@ endp DisplayKHP
 
 ;Description: Draws Zombie
 ;Input: through stack 1.offset zombie
-;Description: Draws Zombie
-;Input: through stack 1.offset zombie
 proc DrawZombie
 	push bp
 	mov bp, sp
@@ -1338,7 +1345,7 @@ proc UpdateZombie
 	
 ;Zombi attack Knight
 	sub [word KnightHP], ZombieMeleeAttackDamage
-	jnc @@NotDead	
+	jnc @@NotDead
 	mov [word KnightHP], 0
 @@NotDead:
 	
