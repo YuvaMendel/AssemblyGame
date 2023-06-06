@@ -3,7 +3,7 @@ IDEAL
 MODEL small
 STACK 100h
 
-
+;Game Name: Zombie Apocalypse
 
 ;This game uses binary 4 digits to represent fractions (Fixed decimal point)
 
@@ -1886,7 +1886,7 @@ proc CheckCollision
 	
 	mov cx, [bp+ 18]; cx -> x1
 	
-	mov si, [bp + 16]; si -> y1
+	mov si, [bp + 16]; si -> y1 
 	
 	mov dx, [bp + 10]; dx -> x2
 	
@@ -1959,69 +1959,17 @@ proc ActivateBullet
 	mov si, [bp + 10]
 	mov [word bx + 3], si
 	
-	mov dx, [bp + 8]
-	mov di, [bp + 6]
+	sub sp, 4
+	push [word bx + 1]
+	push [word bx + 3]
+	push [word bp + 8]
+	push [word bp + 6]
+	push BulletSpeed
+	call XYtoAdd2DotsWithNeg
 	
-	cmp dx, cx
-	ja @@Target_Is_Right1
-	cmp di, si
-	ja @@Target_Is_Below1
+	pop [word bx + 5]
+	pop [word bx + 7]
 	
-	sub sp, 4;Target X and Y are smaller then X and Y start
-	push dx
-	push di
-	push cx
-	push si
-	push BulletSpeed
-	call XYtoAdd2Dots
-	pop cx
-	pop si
-	neg cx
-	neg si
-	jmp @@VectorCalculated
-@@Target_Is_Below1:
-	sub sp, 4;Target X is smaller then X start
-	push dx
-	push si
-	push cx
-	push di
-	push BulletSpeed
-	call XYtoAdd2Dots
-	pop cx
-	pop si
-	neg cx
-
-	jmp @@VectorCalculated
-@@Target_Is_Right1:
-	cmp di, si
-	ja @@Target_Is_Below2
-	sub sp, 4;Target Y is smaller then Y start
-	push cx
-	push di
-	push dx
-	push si
-	push BulletSpeed
-	call XYtoAdd2Dots
-	pop cx
-	pop si
-	neg si
-	jmp @@VectorCalculated
-@@Target_Is_Below2:
-
-	sub sp, 4;Both X and Y are ok
-	push cx
-	push si
-	push dx
-	push di
-	push BulletSpeed
-	call XYtoAdd2Dots
-	pop cx
-	pop si
-	jmp @@VectorCalculated
-@@VectorCalculated:
-
-	mov [word bx + 5], cx
-	mov [word bx + 7], si
 	
 	inc [ActiveBulletCounter]
 	
@@ -2083,7 +2031,7 @@ endp LoopDelay
 
 
 
-; thess procedures are temporary
+
 
 proc printAxDec  
 	   
@@ -2126,7 +2074,7 @@ pop_next_from_stack:
        ret
 endp printAxDec
 
-;End of temp procedures
+
 
 
 
